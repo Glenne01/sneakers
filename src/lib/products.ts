@@ -3,22 +3,22 @@ import { Product, ProductVariant } from '@/types/database'
 
 export interface ProductWithVariants extends Product {
   variants: ProductVariant[]
-  brand: {
+  brand?: {
     id: string
     name: string
-    logo_url: string
-    description: string
+    logo_url: string | null
+    description: string | null
     is_active: boolean
     created_at: string
-  } | null
-  category: {
+  }
+  category?: {
     id: string
     name: string
-    gender: string
-    description: string
+    gender: 'homme' | 'femme' | 'enfant' | 'unisexe'
+    description: string | null
     is_active: boolean
     created_at: string
-  } | null
+  }
 }
 
 export async function getProducts(): Promise<ProductWithVariants[]> {

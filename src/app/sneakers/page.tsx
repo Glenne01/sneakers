@@ -1,13 +1,13 @@
 'use client'
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { FunnelIcon, XMarkIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import ProductGrid from '@/components/products/ProductGrid'
 import { Button } from '@/components/ui/Button'
 import { getProducts, ProductWithVariants } from '@/lib/products'
-import { Product } from '@/types/database'
 
 
 const genderOptions = [
@@ -22,7 +22,7 @@ const sizeOptions = [
   '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'
 ]
 
-export default function SneakersPage() {
+function SneakersPageContent() {
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
@@ -329,7 +329,7 @@ export default function SneakersPage() {
                 </div>
               </div>
 
-              <ProductGrid 
+              <ProductGrid
                 products={filteredProducts as any}
                 loading={loading}
                 showFilters={false}
@@ -339,5 +339,20 @@ export default function SneakersPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function SneakersPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <SneakersPageContent />
+    </Suspense>
   )
 }

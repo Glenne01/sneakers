@@ -7,7 +7,10 @@ export const supabase = createClientComponentClient<Database>()
 export const handleSupabaseResponse = <T>(response: { data: T | null; error: unknown }) => {
   if (response.error) {
     console.error('Supabase error:', response.error)
-    throw new Error(response.error.message)
+    const errorMessage = typeof response.error === 'object' && response.error && 'message' in response.error
+      ? (response.error as { message: string }).message
+      : String(response.error)
+    throw new Error(errorMessage)
   }
   return response.data
 }
