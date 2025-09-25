@@ -12,13 +12,13 @@
 
         "@supabase/mcp-server-supabase",
 
-        "--project-ref=dqqtqnaomptjeiaydoxm"
+        "--project-ref=pnkomglhvrwaddshwjff"
 
       ],
 
       "env": {
 
-        "SUPABASE_ACCESS_TOKEN": "sbp_4cd1c0da064e6fe9d8e040164a0713e818a98fe3"
+        "SUPABASE_ACCESS_TOKEN": "sbp_43b0275bcb1f56b2d33611d0ede78a445c71dc4c"
 
       }
 
