@@ -39,11 +39,14 @@ export async function GET(
     }
 
     // Transformer les données pour l'interface
-    const formattedStock = stockData.map((item: any) => ({
-      id: item.size.id,
-      size_value: item.size.size_value,
-      stock: item.quantity
-    }))
+    const formattedStock = stockData.map((item) => {
+      const stockItem = item as unknown as { size: { id: string; size_value: string }; quantity: number }
+      return {
+        id: stockItem.size.id,
+        size_value: stockItem.size.size_value,
+        stock: stockItem.quantity
+      }
+    })
 
     return NextResponse.json(formattedStock)
   } catch (error) {

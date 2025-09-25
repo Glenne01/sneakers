@@ -234,8 +234,8 @@ export interface Database {
           tax_amount: number | null
           total_amount: number
           currency: string | null
-          shipping_address: any
-          billing_address: any | null
+          shipping_address: Record<string, unknown>
+          billing_address: Record<string, unknown> | null
           tracking_number: string | null
           notes: string | null
           processed_by: string | null

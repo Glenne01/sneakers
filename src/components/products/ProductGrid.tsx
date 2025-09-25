@@ -179,7 +179,7 @@ const ProductGrid = ({ products, loading = false, className = '', showFilters = 
               Aucun produit trouvé
             </h3>
             <p className="text-gray-500 mb-6">
-              Essayez d'ajuster vos filtres pour voir plus de résultats.
+              Essayez d&apos;ajuster vos filtres pour voir plus de résultats.
             </p>
             <button
               onClick={() => {

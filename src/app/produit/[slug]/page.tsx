@@ -101,7 +101,7 @@ export default function ProductDetailPage() {
       quantity
     }
 
-    addItem(cartItem)
+    addItem(cartItem as any)
     setError('')
     
     // Reset selection

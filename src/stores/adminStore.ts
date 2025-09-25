@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { User, UserRole } from '@/types/admin'
+import { User } from '@/types/admin'
 
 interface AdminStore {
   user: User | null

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
-  MagnifyingGlassIcon, 
+ 
   UserIcon, 
   ShoppingBagIcon, 
   Bars3Icon,

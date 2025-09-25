@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { motion } from 'framer-motion'
 import {
   Bars3Icon,
   XMarkIcon,
@@ -61,9 +60,9 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Accès non autorisé</h1>
-          <p className="text-gray-600 mb-6">Vous devez être connecté en tant qu'administrateur ou vendeur.</p>
+          <p className="text-gray-600 mb-6">Vous devez être connecté en tant qu&apos;administrateur ou vendeur.</p>
           <Link href="/">
-            <Button>Retour à l'accueil</Button>
+            <Button>Retour à l&apos;accueil</Button>
           </Link>
         </div>
       </div>

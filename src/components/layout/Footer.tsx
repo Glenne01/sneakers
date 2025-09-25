@@ -99,7 +99,7 @@ const Footer = () => {
                 className="flex-1 px-6 py-3 rounded-lg bg-gray-800 border border-gray-700 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-colors duration-200 text-white placeholder-gray-400"
               />
               <Button type="submit" className="px-8">
-                S'inscrire
+                S&apos;inscrire
               </Button>
             </form>
           </div>

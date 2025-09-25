@@ -1,12 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   ChartBarIcon,
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
-  EyeIcon,
   ShoppingBagIcon,
   CurrencyEuroIcon,
   UsersIcon
@@ -159,7 +158,7 @@ export default function AnalyticsPage() {
             </div>
             <div className="p-6">
               <div className="h-80 flex items-end justify-between space-x-2">
-                {mockChartData.map((data, index) => (
+                {mockChartData.map((data) => (
                   <div key={data.month} className="flex-1 flex flex-col items-center">
                     <div 
                       className="w-full bg-orange-500 rounded-t-md transition-all duration-300 hover:bg-orange-600"
@@ -313,7 +312,7 @@ export default function AnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-semibold text-gray-900">Export des données</h3>
-              <p className="text-sm text-gray-600">Téléchargez vos rapports d'analyse</p>
+              <p className="text-sm text-gray-600">Téléchargez vos rapports d&apos;analyse</p>
             </div>
             <div className="flex space-x-3">
               <button className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">

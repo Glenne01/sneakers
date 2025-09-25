@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { 
-  PlusIcon,
   MagnifyingGlassIcon,
   PencilIcon,
   TrashIcon,
@@ -63,10 +62,13 @@ export default function VendorsPage() {
     }
   }
 
-  const createVendor = (data: any) => {
+  const createVendor = (data: Record<string, FormDataEntryValue | null>) => {
     const newVendor: User = {
       id: 'v' + Date.now(),
-      ...data,
+      email: (data.email as string) || '',
+      firstName: (data.firstName as string) || '',
+      lastName: (data.lastName as string) || '',
+      phone: (data.phone as string) || undefined,
       role: 'vendor' as const,
       isActive: true,
       createdAt: new Date().toISOString(),

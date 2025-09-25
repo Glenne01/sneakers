@@ -8,6 +8,7 @@ import { ChevronRightIcon, StarIcon, TruckIcon, ShieldCheckIcon, HeartIcon } fro
 import { Button } from '@/components/ui/Button'
 import ProductCard from '@/components/products/ProductCard'
 import { getProducts, ProductWithVariants } from '@/lib/products'
+import { Product } from '@/types/database'
 
 
 
@@ -356,7 +357,7 @@ export default function HomePage() {
                     viewport={{ once: true }}
                   >
                     <ProductCard
-                      product={product}
+                      product={product as Product}
                       variant={product.variants[0]}
                     />
                   </motion.div>

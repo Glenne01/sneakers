@@ -35,7 +35,7 @@ export const slugify = (str: string) => {
     .replace(/^-+|-+$/g, '')
 }
 
-export const debounce = <T extends (...args: any[]) => void>(
+export const debounce = <T extends (...args: unknown[]) => void>(
   func: T,
   wait: number
 ): ((...args: Parameters<T>) => void) => {

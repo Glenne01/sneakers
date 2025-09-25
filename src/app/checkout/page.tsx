@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { 
   ChevronLeftIcon,
-  CreditCardIcon,
   TruckIcon,
   CheckCircleIcon
 } from '@heroicons/react/24/outline'
@@ -334,7 +333,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Date d'expiration *</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Date d&apos;expiration *</label>
                       <input
                         type="text"
                         required
@@ -396,7 +395,7 @@ export default function CheckoutPage() {
             <h3 className="text-lg font-bold text-gray-900 mb-6">Résumé de la commande</h3>
             
             <div className="space-y-4 mb-6">
-              {items.map((item, index) => (
+              {items.map((item) => (
                 <div key={`${item.variant.id}-${item.size.id}`} className="flex items-center space-x-4">
                   <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
                     <Image
