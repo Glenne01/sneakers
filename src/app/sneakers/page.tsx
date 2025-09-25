@@ -7,6 +7,7 @@ import { FunnelIcon, XMarkIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@he
 import ProductGrid from '@/components/products/ProductGrid'
 import { Button } from '@/components/ui/Button'
 import { getProducts, ProductWithVariants } from '@/lib/products'
+import { Product } from '@/types/database'
 
 
 const genderOptions = [
@@ -329,7 +330,7 @@ export default function SneakersPage() {
               </div>
 
               <ProductGrid 
-                products={filteredProducts}
+                products={filteredProducts as any}
                 loading={loading}
                 showFilters={false}
               />

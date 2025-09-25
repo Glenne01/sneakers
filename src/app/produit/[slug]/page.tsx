@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/Button'
 import { getProductBySlug, ProductWithVariants } from '@/lib/products'
 import { useCartStore } from '@/stores/cartStore'
+import type { CartItem } from '@/types/database'
 
 interface Size {
   id: string
@@ -101,7 +102,7 @@ export default function ProductDetailPage() {
       quantity
     }
 
-    addItem(cartItem as any)
+    addItem(cartItem as unknown as CartItem)
     setError('')
     
     // Reset selection

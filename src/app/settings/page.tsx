@@ -86,7 +86,7 @@ const mockFavorites: FavoriteItem[] = [
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('profile')
-  // const [editingAddress] = useState<string | null>(null)
+  const [, setEditingAddress] = useState<string | null>(null)
   const [addresses, setAddresses] = useState<Address[]>([
     {
       id: '1',
