@@ -30,8 +30,8 @@ const ProductGrid = ({ products, loading = false, className = '', showFilters = 
 
     // Filter by price range
     filtered = filtered.filter(product => {
-      const minPrice = Math.min(...product.variants.map(v => v.price))
-      const maxPrice = Math.max(...product.variants.map(v => v.price))
+      const minPrice = Math.min(...product.variants.map(v => parseFloat(v.price.toString())))
+      const maxPrice = Math.max(...product.variants.map(v => parseFloat(v.price.toString())))
       return minPrice >= priceRange[0] && maxPrice <= priceRange[1]
     })
 
@@ -39,9 +39,9 @@ const ProductGrid = ({ products, loading = false, className = '', showFilters = 
     filtered.sort((a, b) => {
       switch (sortBy) {
         case 'price-asc':
-          return Math.min(...a.variants.map(v => v.price)) - Math.min(...b.variants.map(v => v.price))
+          return Math.min(...a.variants.map(v => parseFloat(v.price.toString()))) - Math.min(...b.variants.map(v => parseFloat(v.price.toString())))
         case 'price-desc':
-          return Math.max(...b.variants.map(v => v.price)) - Math.max(...a.variants.map(v => v.price))
+          return Math.max(...b.variants.map(v => parseFloat(v.price.toString()))) - Math.max(...a.variants.map(v => parseFloat(v.price.toString())))
         case 'name':
           return a.name.localeCompare(b.name)
         case 'newest':

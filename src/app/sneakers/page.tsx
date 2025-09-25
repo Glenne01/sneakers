@@ -1,14 +1,12 @@
 'use client'
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useState, useEffect, useMemo, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { FunnelIcon, XMarkIcon, ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
-import ProductGrid from '@/components/products/ProductGrid'
 import { Button } from '@/components/ui/Button'
+import ProductCard from '@/components/products/ProductCard'
 import { getProducts, ProductWithVariants } from '@/lib/products'
-
+import { Product } from '@/types/database'
 
 const genderOptions = [
   { value: 'all', label: 'Tous' },
@@ -18,18 +16,22 @@ const genderOptions = [
   { value: 'unisexe', label: 'Unisexe' }
 ]
 
-const sizeOptions = [
-  '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'
-]
+// Pointures par genre basées sur les données de la base
+const sizesByGender = {
+  all: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46', '28', '29', '30', '31', '32', '33', '34', '35'],
+  homme: ['39', '40', '41', '42', '43', '44', '45', '46'], // Pointures masculines typiques
+  femme: ['36', '37', '38', '39', '40', '41', '42', '43'], // Pointures féminines typiques
+  enfant: ['28', '29', '30', '31', '32', '33', '34', '35'], // Pointures enfants
+  unisexe: ['36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '46'] // Pointures unisexes
+}
 
-function SneakersPageContent() {
-  const searchParams = useSearchParams()
+export default function SneakersPage() {
+  const [allProducts, setAllProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
-  const [allProducts, setAllProducts] = useState<ProductWithVariants[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({
-    gender: searchParams.get('gender') || 'all',
+    gender: 'all',
     sizes: [] as string[],
     priceRange: [0, 500] as [number, number],
     sortBy: 'newest'
@@ -39,10 +41,9 @@ function SneakersPageContent() {
     // Charger les produits depuis Supabase
     const loadProducts = async () => {
       try {
-        console.log('🔄 Chargement des produits sur la page sneakers...')
+        console.log('🔄 Chargement des produits depuis Supabase...')
         const fetchedProducts = await getProducts()
-        console.log('📊 Produits récupérés sur sneakers:', fetchedProducts?.length, 'produits')
-        console.log('📋 Détail des produits:', fetchedProducts)
+        console.log('✅ Produits chargés:', fetchedProducts)
         setAllProducts(fetchedProducts)
       } catch (error) {
         console.error('❌ Erreur lors du chargement des produits:', error)
@@ -50,21 +51,21 @@ function SneakersPageContent() {
         setLoading(false)
       }
     }
-    
+
     loadProducts()
   }, [])
 
+  // Filtrer les produits
   const filteredProducts = useMemo(() => {
-    console.log('🔍 Début filtrage - Produits bruts:', allProducts?.length)
     let filtered = [...allProducts]
 
     // Filter by search query
     if (searchQuery.trim()) {
-      filtered = filtered.filter(product => 
+      filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.brand?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.variants.some(variant => 
+        product.variants.some(variant =>
           variant.color?.toLowerCase().includes(searchQuery.toLowerCase())
         )
       )
@@ -77,7 +78,7 @@ function SneakersPageContent() {
 
     // Filter by price range
     filtered = filtered.filter(product => {
-      const price = product.variants[0]?.price || 0
+      const price = parseFloat(product.variants[0]?.price?.toString() || '0')
       return price >= filters.priceRange[0] && price <= filters.priceRange[1]
     })
 
@@ -85,9 +86,11 @@ function SneakersPageContent() {
     filtered.sort((a, b) => {
       switch (filters.sortBy) {
         case 'price-asc':
-          return (a.variants[0]?.price || 0) - (b.variants[0]?.price || 0)
+          return parseFloat(a.variants[0]?.price?.toString() || '0') - parseFloat(b.variants[0]?.price?.toString() || '0')
         case 'price-desc':
-          return (b.variants[0]?.price || 0) - (a.variants[0]?.price || 0)
+          return parseFloat(b.variants[0]?.price?.toString() || '0') - parseFloat(a.variants[0]?.price?.toString() || '0')
+        case 'name':
+          return a.name.localeCompare(b.name)
         case 'newest':
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         default:
@@ -95,16 +98,21 @@ function SneakersPageContent() {
       }
     })
 
-    console.log('✅ Filtrage terminé - Produits filtrés:', filtered?.length)
-    console.log('🔧 Filtres actifs:', { 
-      gender: filters.gender, 
-      searchQuery,
-      priceRange: filters.priceRange,
-      sizesCount: filters.sizes.length
-    })
-    
     return filtered
-  }, [filters, searchQuery, allProducts])
+  }, [allProducts, filters, searchQuery])
+
+  // Pointures disponibles selon le genre sélectionné
+  const availableSizes = useMemo(() => {
+    return sizesByGender[filters.gender as keyof typeof sizesByGender] || sizesByGender.all
+  }, [filters.gender])
+
+  // Effacer les pointures sélectionnées qui ne sont plus disponibles
+  useEffect(() => {
+    const validSizes = filters.sizes.filter(size => availableSizes.includes(size))
+    if (validSizes.length !== filters.sizes.length) {
+      setFilters(prev => ({ ...prev, sizes: validSizes }))
+    }
+  }, [availableSizes, filters.sizes])
 
   const handleGenderChange = (gender: string) => {
     setFilters(prev => ({ ...prev, gender }))
@@ -119,10 +127,6 @@ function SneakersPageContent() {
     }))
   }
 
-  const handlePriceChange = (min: number, max: number) => {
-    setFilters(prev => ({ ...prev, priceRange: [min, max] }))
-  }
-
   const clearFilters = () => {
     setFilters({
       gender: 'all',
@@ -130,15 +134,17 @@ function SneakersPageContent() {
       priceRange: [0, 500],
       sortBy: 'newest'
     })
+    setSearchQuery('')
   }
 
-  const activeFiltersCount = 
+  const activeFiltersCount =
     (filters.gender !== 'all' ? 1 : 0) +
     filters.sizes.length +
-    (filters.priceRange[0] > 0 || filters.priceRange[1] < 500 ? 1 : 0)
+    (filters.priceRange[0] > 0 || filters.priceRange[1] < 500 ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0)
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Hero Section */}
       <section className="bg-gradient-to-r from-orange-500 to-red-500 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -161,7 +167,7 @@ function SneakersPageContent() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           {/* Mobile Filter Toggle */}
           <div className="lg:hidden">
             <Button
@@ -176,7 +182,7 @@ function SneakersPageContent() {
           </div>
 
           {/* Filters Sidebar */}
-          <motion.aside 
+          <motion.aside
             className={`lg:w-80 bg-white rounded-2xl p-6 shadow-soft h-fit ${
               showFilters ? 'block' : 'hidden lg:block'
             }`}
@@ -197,6 +203,21 @@ function SneakersPageContent() {
                   Effacer
                 </Button>
               )}
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Recherche</h3>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
+                />
+              </div>
             </div>
 
             {/* Gender Filter */}
@@ -222,11 +243,13 @@ function SneakersPageContent() {
               </div>
             </div>
 
-            {/* Size Filter */}
+            {/* Size Filter - Dynamic selon le genre */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Pointures</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Pointures {filters.gender !== 'all' && `(${genderOptions.find(g => g.value === filters.gender)?.label})`}
+              </h3>
               <div className="grid grid-cols-3 gap-2">
-                {sizeOptions.map(size => (
+                {availableSizes.map(size => (
                   <button
                     key={size}
                     onClick={() => handleSizeToggle(size)}
@@ -259,7 +282,7 @@ function SneakersPageContent() {
                       min="0"
                       max="500"
                       value={filters.priceRange[0]}
-                      onChange={(e) => handlePriceChange(Number(e.target.value), filters.priceRange[1])}
+                      onChange={(e) => setFilters(prev => ({ ...prev, priceRange: [Number(e.target.value), prev.priceRange[1]] }))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   </div>
@@ -270,7 +293,7 @@ function SneakersPageContent() {
                       min="0"
                       max="500"
                       value={filters.priceRange[1]}
-                      onChange={(e) => handlePriceChange(filters.priceRange[0], Number(e.target.value))}
+                      onChange={(e) => setFilters(prev => ({ ...prev, priceRange: [prev.priceRange[0], Number(e.target.value)] }))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                     />
                   </div>
@@ -289,9 +312,10 @@ function SneakersPageContent() {
                 onChange={(e) => setFilters(prev => ({ ...prev, sortBy: e.target.value }))}
                 className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
               >
+                <option value="newest">Plus récents</option>
+                <option value="name">Nom A-Z</option>
                 <option value="price-asc">Prix croissant</option>
                 <option value="price-desc">Prix décroissant</option>
-                <option value="newest">Plus récents</option>
               </select>
             </div>
           </motion.aside>
@@ -310,49 +334,66 @@ function SneakersPageContent() {
                     {filteredProducts.length} sneaker{filteredProducts.length !== 1 ? 's' : ''}
                   </h2>
                   <p className="text-gray-600 mt-1">
-                    {filters.gender !== 'all' && `Genre: ${genderOptions.find(g => g.value === filters.gender)?.label}`}
+                    {filters.gender !== 'all'
+                      ? `Genre: ${genderOptions.find(g => g.value === filters.gender)?.label}`
+                      : 'Collection complète'
+                    }
                   </p>
-                </div>
-                
-                {/* Search Bar */}
-                <div className="flex-1 max-w-md">
-                  <div className="relative">
-                    <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Rechercher des sneakers..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-200"
-                    />
-                  </div>
                 </div>
               </div>
 
-              <ProductGrid
-                products={filteredProducts as any}
-                loading={loading}
-                showFilters={false}
-              />
+              {loading ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <div key={index} className="bg-gray-200 h-80 rounded-2xl animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <span className="text-gray-400 text-2xl">🔍</span>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">
+                      Aucun produit trouvé
+                    </h3>
+                    <p className="text-gray-500 mb-6">
+                      Essayez d'ajuster vos filtres pour voir plus de résultats.
+                    </p>
+                    <Button
+                      onClick={clearFilters}
+                      variant="secondary"
+                    >
+                      Réinitialiser les filtres
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <motion.div
+                  initial={{ opacity: 0, y: 40 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8 }}
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+                >
+                  {filteredProducts.map((product, index) => (
+                    <motion.div
+                      key={product.id}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: index * 0.1, duration: 0.3 }}
+                    >
+                      <ProductCard
+                        product={product as Product}
+                        variant={product.variants[0]}
+                      />
+                    </motion.div>
+                  ))}
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </div>
       </div>
     </div>
-  )
-}
-
-export default function SneakersPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
-        </div>
-      </div>
-    }>
-      <SneakersPageContent />
-    </Suspense>
   )
 }

@@ -27,30 +27,38 @@ export async function getProducts(): Promise<ProductWithVariants[]> {
       .from('products')
       .select(`
         *,
-        variants:product_variants(*),
-        brand:brands(*),
-        category:categories(*)
+        product_variants(*),
+        brands(*),
+        categories(*)
       `)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
     const products = handleSupabaseResponse(response)
-    
+
     // Debug: afficher les produits récupérés
     console.log('Produits récupérés depuis Supabase:', products?.length, 'produits')
     console.log('Détail des produits:', products)
-    
+
+    // Transformer les produits pour correspondre à l'interface ProductWithVariants
+    const transformedProducts = products?.map(product => ({
+      ...product,
+      variants: product.product_variants || [],
+      brand: product.brands,
+      category: product.categories
+    })) || []
+
     // Filtrer les produits qui ont au moins une variante active
-    const filteredProducts = products?.filter(product => 
-      product.variants && product.variants.length > 0 && 
+    const filteredProducts = transformedProducts.filter(product =>
+      product.variants && product.variants.length > 0 &&
       product.variants.some((variant: ProductVariant) => variant.is_active)
-    ) || []
-    
+    )
+
     console.log('Produits filtrés:', filteredProducts.length, 'produits')
     console.log('Détail des produits filtrés:', filteredProducts)
-    
+
     return filteredProducts
-    
+
   } catch (error) {
     console.error('Erreur lors de la récupération des produits:', error)
     return []
@@ -63,21 +71,29 @@ export async function getProductsByCategory(categoryId: string): Promise<Product
       .from('products')
       .select(`
         *,
-        variants:product_variants(*),
-        brand:brands(*),
-        category:categories(*)
+        product_variants(*),
+        brands(*),
+        categories(*)
       `)
       .eq('category_id', categoryId)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
     const products = handleSupabaseResponse(response)
-    
-    return products?.filter(product => 
-      product.variants && product.variants.length > 0 && 
+
+    // Transformer les produits pour correspondre à l'interface ProductWithVariants
+    const transformedProducts = products?.map(product => ({
+      ...product,
+      variants: product.product_variants || [],
+      brand: product.brands,
+      category: product.categories
+    })) || []
+
+    return transformedProducts.filter(product =>
+      product.variants && product.variants.length > 0 &&
       product.variants.some((variant: ProductVariant) => variant.is_active)
-    ) || []
-    
+    )
+
   } catch (error) {
     console.error('Erreur lors de la récupération des produits par catégorie:', error)
     return []
@@ -86,31 +102,31 @@ export async function getProductsByCategory(categoryId: string): Promise<Product
 
 export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
   try {
-    // Extract SKU from slug (assuming format: product-name-FULL-SKU)
-    // Find the last occurrence of a known SKU pattern
-    const parts = slug.split('-')
-    
-    // Try to find a matching SKU pattern (looking for the last few parts that might form a SKU)
+    // Extract SKU from slug (format: product-name-SKU)
+    // Get all possible SKUs from database to match against
+    const allSkusResponse = await supabase
+      .from('product_variants')
+      .select('sku')
+      .eq('is_active', true)
+
+    const allSkus = handleSupabaseResponse(allSkusResponse)?.map(item => item.sku) || []
+
+    // Try to find the SKU that matches the end of the slug
     let sku = ''
-    
-    // Check if the last parts contain a known SKU pattern
-    for (let i = parts.length - 3; i < parts.length; i++) {
-      if (i >= 0) {
-        const potentialSku = parts.slice(i).join('-').toUpperCase()
-        // Check if this looks like our SKU format
-        if (potentialSku.includes('-001') || potentialSku.match(/^[A-Z]+-[A-Z]+-\d+$/)) {
-          sku = potentialSku
-          break
-        }
+
+    // Check each possible SKU to see if the slug ends with it (case insensitive)
+    for (const possibleSku of allSkus) {
+      const slugLower = slug.toLowerCase()
+      const skuLower = possibleSku.toLowerCase()
+
+      // Check if slug ends with this SKU (with a dash before it)
+      if (slugLower.endsWith('-' + skuLower) || slugLower.endsWith(skuLower)) {
+        sku = possibleSku
+        break
       }
     }
-    
-    // Fallback: try the last part uppercased if no pattern found
-    if (!sku) {
-      sku = parts[parts.length - 1].toUpperCase()
-    }
-    
-    console.log('Debug: slug =', slug, ', extracted SKU =', sku)
+
+    console.log('Debug: slug =', slug, ', extracted SKU =', sku, ', available SKUs =', allSkus.slice(0, 5))
 
     const response = await supabase
       .from('product_variants')

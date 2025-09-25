@@ -181,13 +181,13 @@ const ProductCard = ({ product, variant, className = '', showQuickAdd = true }: 
                 <span className="text-lg font-bold text-gray-900">
                   {formatPrice(variant.price)}
                 </span>
-                {variant.price !== product.base_price && (
+                {parseFloat(variant.price.toString()) !== parseFloat(product.base_price.toString()) && (
                   <div className="flex items-center space-x-2">
                     <span className="text-sm text-gray-500 line-through">
                       {formatPrice(product.base_price)}
                     </span>
                     <span className="text-xs bg-red-100 text-red-800 px-2 py-1 rounded-full">
-                      -{Math.round((1 - variant.price / product.base_price) * 100)}%
+                      -{Math.round((1 - parseFloat(variant.price.toString()) / parseFloat(product.base_price.toString())) * 100)}%
                     </span>
                   </div>
                 )}
