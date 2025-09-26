@@ -217,10 +217,57 @@ export default function CheckoutPage() {
 
       if (paymentError) throw paymentError
 
-      // Succès !
+      // Succès ! Envoyer l'email de confirmation
       setOrderNumber(newOrderNumber)
+
+      // Préparer les données pour l'email
+      const emailData = {
+        orderNumber: newOrderNumber,
+        customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
+        customerEmail: customerInfo.email,
+        items: items.map(item => ({
+          name: item.variant.product?.name || '',
+          size: item.size.size_display || item.size.size_value,
+          quantity: item.quantity,
+          price: item.variant.price,
+          total: item.variant.price * item.quantity
+        })),
+        subtotal: total,
+        shipping: shipping,
+        total: finalTotal,
+        shippingAddress: {
+          firstName: customerInfo.firstName,
+          lastName: customerInfo.lastName,
+          address: shippingAddress.address,
+          city: shippingAddress.city,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+          phone: customerInfo.phone
+        }
+      }
+
+      // Envoyer l'email de confirmation (ne pas bloquer le processus si ça échoue)
+      try {
+        const response = await fetch('/api/send-confirmation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(emailData)
+        })
+
+        if (response.ok) {
+          console.log('Email de confirmation envoyé avec succès')
+        } else {
+          console.error('Échec de l\'envoi de l\'email de confirmation')
+        }
+      } catch (emailError) {
+        console.error('Erreur lors de l\'envoi de l\'email:', emailError)
+        // Ne pas faire échouer la commande si l'email ne s'envoie pas
+      }
+
       handleNextStep()
-      toast.success('Commande passée avec succès !')
+      toast.success('Commande passée avec succès ! Vous allez recevoir un email de confirmation.')
 
     } catch (error: any) {
       console.error('Erreur lors du checkout:', error)

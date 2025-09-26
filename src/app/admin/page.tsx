@@ -28,7 +28,7 @@ interface StatCard {
 
 export default function AdminDashboard() {
   const { user, isAuthenticated } = useAdminStore()
-  const { canAccess } = usePermissions(user?.role || 'user')
+  const { canAccess } = usePermissions(user?.role || 'customer')
   const [stats, setStats] = useState<StatCard[]>([])
   const [loading, setLoading] = useState(true)
 

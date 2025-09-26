@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'vendor' | 'user'
+export type UserRole = 'admin' | 'vendor' | 'customer'
 
 export interface User {
   id: string
@@ -32,7 +32,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     { resource: 'products', actions: ['create', 'read', 'update'] },
     { resource: 'analytics', actions: ['read'] }
   ],
-  user: []
+  customer: []
 }
 
 export interface OrderStatus {

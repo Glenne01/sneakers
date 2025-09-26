@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { 
   MagnifyingGlassIcon,
@@ -12,14 +12,54 @@ import {
 import AdminLayout from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { User } from '@/types/admin'
-
-const mockVendors: User[] = []
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 export default function VendorsPage() {
-  const [vendors, setVendors] = useState<User[]>(mockVendors)
+  const [vendors, setVendors] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedVendor, setSelectedVendor] = useState<User | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
+
+  // Charger les vendeurs depuis la base de données
+  useEffect(() => {
+    loadVendors()
+  }, [])
+
+  const loadVendors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'vendor')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      // Mapper les données de la base vers le format User
+      const mappedVendors: User[] = (data || []).map(vendor => ({
+        id: vendor.id,
+        email: vendor.email || '',
+        firstName: vendor.first_name || '',
+        lastName: vendor.last_name || '',
+        phone: vendor.phone,
+        role: vendor.role || 'vendor',
+        isActive: vendor.is_active ?? true,
+        createdAt: vendor.created_at || new Date().toISOString(),
+        updatedAt: vendor.updated_at || new Date().toISOString()
+      }))
+
+      setVendors(mappedVendors)
+    } catch (error) {
+      console.error('Erreur lors du chargement des vendeurs:', error)
+      toast.error('Erreur lors du chargement des vendeurs')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredVendors = vendors.filter(vendor =>
     vendor.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -27,32 +67,122 @@ export default function VendorsPage() {
     vendor.email.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const toggleVendorStatus = (vendorId: string) => {
-    setVendors(prev => prev.map(vendor =>
-      vendor.id === vendorId ? { ...vendor, isActive: !vendor.isActive } : vendor
-    ))
-  }
+  const toggleVendorStatus = async (vendorId: string) => {
+    try {
+      const vendor = vendors.find(v => v.id === vendorId)
+      if (!vendor) return
 
-  const deleteVendor = (vendorId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce vendeur ?')) {
-      setVendors(prev => prev.filter(vendor => vendor.id !== vendorId))
+      const newStatus = !vendor.isActive
+
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', vendorId)
+
+      if (error) {
+        throw error
+      }
+
+      setVendors(prev => prev.map(vendor =>
+        vendor.id === vendorId ? { ...vendor, isActive: newStatus } : vendor
+      ))
+
+      toast.success(`Vendeur ${newStatus ? 'activé' : 'désactivé'} avec succès`)
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error)
+      toast.error('Erreur lors de la mise à jour du statut')
     }
   }
 
-  const createVendor = (data: Record<string, FormDataEntryValue | null>) => {
-    const newVendor: User = {
-      id: 'v' + Date.now(),
-      email: (data.email as string) || '',
-      firstName: (data.firstName as string) || '',
-      lastName: (data.lastName as string) || '',
-      phone: (data.phone as string) || undefined,
-      role: 'vendor' as const,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+  const deleteVendor = async (vendorId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce vendeur ? Cette action est irréversible.')) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', vendorId)
+
+        if (error) {
+          throw error
+        }
+
+        setVendors(prev => prev.filter(vendor => vendor.id !== vendorId))
+        if (selectedVendor?.id === vendorId) {
+          setSelectedVendor(null)
+        }
+        toast.success('Vendeur supprimé avec succès')
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        toast.error('Erreur lors de la suppression du vendeur')
+      }
     }
-    setVendors(prev => [...prev, newVendor])
-    setShowCreateForm(false)
+  }
+
+  const createVendor = async (data: Record<string, FormDataEntryValue | null>) => {
+    try {
+      console.log('Tentative de création vendeur avec:', data)
+
+      // Valider les données requises
+      const email = (data.email as string)?.trim()
+      const firstName = (data.firstName as string)?.trim()
+      const lastName = (data.lastName as string)?.trim()
+
+      if (!email || !firstName || !lastName) {
+        toast.error('Veuillez remplir tous les champs obligatoires')
+        return
+      }
+
+      const insertData = {
+        email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: (data.phone as string)?.trim() || null,
+        role: 'vendor' as const,
+        is_active: true
+        // Ne pas forcer created_at et updated_at, laisser les valeurs par défaut de la base
+      }
+
+      console.log('Données à insérer:', insertData)
+
+      const { data: newVendorData, error } = await supabase
+        .from('users')
+        .insert(insertData)
+        .select()
+        .single()
+
+      console.log('Résultat insertion:', { newVendorData, error })
+
+      if (error) {
+        console.error('Erreur Supabase:', error)
+        throw error
+      }
+
+      if (!newVendorData) {
+        throw new Error('Aucune donnée retournée après insertion')
+      }
+
+      const newVendor: User = {
+        id: newVendorData.id,
+        email: newVendorData.email || '',
+        firstName: newVendorData.first_name || '',
+        lastName: newVendorData.last_name || '',
+        phone: newVendorData.phone,
+        role: newVendorData.role || 'vendor',
+        isActive: newVendorData.is_active ?? true,
+        createdAt: newVendorData.created_at || new Date().toISOString(),
+        updatedAt: newVendorData.updated_at || new Date().toISOString()
+      }
+
+      console.log('Nouveau vendeur mappé:', newVendor)
+
+      setVendors(prev => [newVendor, ...prev])
+      setShowCreateForm(false)
+      toast.success('Vendeur créé avec succès')
+    } catch (error: any) {
+      console.error('Erreur lors de la création du vendeur:', error)
+      const errorMessage = error?.message || 'Erreur lors de la création du vendeur'
+      toast.error(errorMessage)
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -116,7 +246,31 @@ export default function VendorsPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredVendors.map((vendor) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                      </div>
+                      <p className="text-gray-500 mt-2">Chargement des vendeurs...</p>
+                    </td>
+                  </tr>
+                ) : filteredVendors.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <span className="text-gray-400 text-2xl">👥</span>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun vendeur trouvé</h3>
+                      <p className="text-gray-500">
+                        {searchTerm
+                          ? 'Essayez de modifier vos filtres de recherche.'
+                          : 'Cliquez sur "Nouveau vendeur" pour créer le premier vendeur.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredVendors.map((vendor) => (
                   <motion.tr
                     key={vendor.id}
                     initial={{ opacity: 0 }}
@@ -182,7 +336,8 @@ export default function VendorsPage() {
                       </button>
                     </td>
                   </motion.tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

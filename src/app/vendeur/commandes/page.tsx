@@ -6,10 +6,9 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   EyeIcon,
-  PencilIcon,
-  TrashIcon
+  PencilIcon
 } from '@heroicons/react/24/outline'
-import AdminLayout from '@/components/admin/AdminLayout'
+import VendorLayout from '@/components/vendor/VendorLayout'
 import { ORDER_STATUSES } from '@/types/admin'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
@@ -33,14 +32,13 @@ interface Order {
   shippingAddress: string
 }
 
-export default function OrdersPage() {
+export default function VendorOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
-  // Charger les commandes depuis la base de données
   useEffect(() => {
     loadOrders()
   }, [])
@@ -109,7 +107,7 @@ export default function OrdersPage() {
       ]
 
       setOrders(testOrders)
-      console.log('3 commandes admin de test chargées')
+      console.log('3 commandes de test chargées')
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error)
       toast.error('Erreur lors du chargement des commandes')
@@ -162,45 +160,6 @@ export default function OrdersPage() {
     }
   }
 
-  const deleteOrder = async (orderId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.')) {
-      try {
-        // Supprimer d'abord les articles de la commande
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', orderId)
-
-        if (itemsError) throw itemsError
-
-        // Supprimer les paiements
-        const { error: paymentsError } = await supabase
-          .from('payments')
-          .delete()
-          .eq('order_id', orderId)
-
-        if (paymentsError) throw paymentsError
-
-        // Supprimer la commande
-        const { error: orderError } = await supabase
-          .from('orders')
-          .delete()
-          .eq('id', orderId)
-
-        if (orderError) throw orderError
-
-        setOrders(prev => prev.filter(order => order.id !== orderId))
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(null)
-        }
-        toast.success('Commande supprimée avec succès')
-      } catch (error) {
-        console.error('Erreur lors de la suppression:', error)
-        toast.error('Erreur lors de la suppression de la commande')
-      }
-    }
-  }
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('fr-FR', {
       day: '2-digit',
@@ -212,7 +171,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <AdminLayout>
+    <VendorLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -365,13 +324,6 @@ export default function OrdersPage() {
                             <PencilIcon className="h-4 w-4 mr-1" />
                             Modifier
                           </button>
-                          <button
-                            onClick={() => deleteOrder(order.id)}
-                            className="text-red-600 hover:text-red-900 inline-flex items-center"
-                          >
-                            <TrashIcon className="h-4 w-4 mr-1" />
-                            Supprimer
-                          </button>
                         </td>
                       </motion.tr>
                     )
@@ -397,7 +349,7 @@ export default function OrdersPage() {
                     Détails de la commande {selectedOrder.orderNumber}
                   </h2>
                 </div>
-                
+
                 <div className="p-6 space-y-6">
                   {/* Customer Info */}
                   <div>
@@ -465,6 +417,6 @@ export default function OrdersPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </VendorLayout>
   )
 }
