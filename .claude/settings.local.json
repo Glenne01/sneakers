@@ -20,7 +20,8 @@
       "WebFetch(domain:i.imgur.com)",
       "Bash(git ls-tree:*)",
       "Bash(grep:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(git restore:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

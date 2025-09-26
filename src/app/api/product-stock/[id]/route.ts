@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const productId = params.id
+    const productId = (await params).id
     const supabase = createClientComponentClient<Database>()
 
     // Récupérer toutes les tailles avec leur stock pour ce produit
