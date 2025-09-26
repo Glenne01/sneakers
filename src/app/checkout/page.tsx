@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { 
+import {
   ChevronLeftIcon,
   TruckIcon,
   CheckCircleIcon
@@ -13,6 +13,8 @@ import {
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/stores/cartStore'
 import { formatPrice } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 interface CustomerInfo {
   firstName: string
@@ -40,6 +42,7 @@ export default function CheckoutPage() {
   const { items, getTotal, clearCart } = useCartStore()
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [orderNumber, setOrderNumber] = useState('')
   
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     firstName: '',
@@ -102,6 +105,12 @@ export default function CheckoutPage() {
     }
   }
 
+  const generateOrderNumber = () => {
+    const timestamp = Date.now().toString().slice(-6)
+    const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+    return `SH-${timestamp}-${random}`
+  }
+
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!paymentInfo.cardNumber || !paymentInfo.expiryDate || !paymentInfo.cvv || !paymentInfo.cardholderName) {
@@ -109,12 +118,116 @@ export default function CheckoutPage() {
     }
 
     setLoading(true)
-    
-    // Simulation du paiement (2 secondes)
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    handleNextStep()
-    setLoading(false)
+
+    try {
+      const newOrderNumber = generateOrderNumber()
+
+      // 1. Créer l'utilisateur s'il n'existe pas
+      let userId: string | null = null
+
+      // Vérifier si l'utilisateur existe déjà
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', customerInfo.email)
+        .single()
+
+      if (existingUser) {
+        userId = existingUser.id
+      } else {
+        // Créer un nouvel utilisateur
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert({
+            email: customerInfo.email,
+            first_name: customerInfo.firstName,
+            last_name: customerInfo.lastName,
+            phone: customerInfo.phone,
+            role: 'customer',
+            is_active: true
+          })
+          .select('id')
+          .single()
+
+        if (userError) throw userError
+        userId = newUser.id
+      }
+
+      if (!userId) throw new Error('Impossible de créer ou récupérer l\'utilisateur')
+
+      // 2. Créer la commande
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          order_number: newOrderNumber,
+          user_id: userId,
+          status: 'confirmed',
+          subtotal: total,
+          shipping_cost: shipping,
+          tax_amount: 0,
+          total_amount: finalTotal,
+          currency: 'EUR',
+          shipping_address: {
+            first_name: customerInfo.firstName,
+            last_name: customerInfo.lastName,
+            address: shippingAddress.address,
+            city: shippingAddress.city,
+            postal_code: shippingAddress.postalCode,
+            country: shippingAddress.country,
+            phone: customerInfo.phone
+          }
+        })
+        .select('id')
+        .single()
+
+      if (orderError) throw orderError
+
+      // 3. Créer les articles de la commande
+      const orderItems = items.map(item => ({
+        order_id: order.id,
+        variant_id: item.variant.id,
+        size_id: item.size.id,
+        product_name: item.variant.product?.name || '',
+        variant_color: item.variant.color,
+        variant_sku: item.variant.sku,
+        size_value: item.size.size_value,
+        unit_price: item.variant.price,
+        quantity: item.quantity,
+        line_total: item.variant.price * item.quantity
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems)
+
+      if (itemsError) throw itemsError
+
+      // 4. Créer le paiement
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          order_id: order.id,
+          payment_method: 'stripe',
+          status: 'completed',
+          amount: finalTotal,
+          currency: 'EUR',
+          transaction_id: `stripe_${Date.now()}`,
+          processed_at: new Date().toISOString()
+        })
+
+      if (paymentError) throw paymentError
+
+      // Succès !
+      setOrderNumber(newOrderNumber)
+      handleNextStep()
+      toast.success('Commande passée avec succès !')
+
+    } catch (error: any) {
+      console.error('Erreur lors du checkout:', error)
+      toast.error(error.message || 'Erreur lors de la finalisation de la commande')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleOrderComplete = () => {
@@ -381,7 +494,7 @@ export default function CheckoutPage() {
                 </p>
                 <div className="bg-gray-50 rounded-lg p-4 mb-6">
                   <p className="text-sm text-gray-600">Numéro de commande</p>
-                  <p className="text-lg font-bold text-gray-900">SNK-{Date.now().toString().slice(-6)}</p>
+                  <p className="text-lg font-bold text-gray-900">{orderNumber}</p>
                 </div>
                 <Button onClick={handleOrderComplete} size="lg" className="w-full">
                   Continuer mes achats
@@ -410,7 +523,7 @@ export default function CheckoutPage() {
                       {item.variant.product?.name}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Taille {item.size.size_value} • Qté {item.quantity}
+                      Taille {item.size.size_display} • Qté {item.quantity}
                     </p>
                   </div>
                   <p className="text-sm font-medium text-gray-900">

@@ -56,6 +56,12 @@ const nextConfig: NextConfig = {
         hostname: 'asset.snipes.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.pixabay.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

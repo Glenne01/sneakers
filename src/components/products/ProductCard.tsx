@@ -3,12 +3,16 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { HeartIcon, EyeIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import { Product, ProductVariant } from '@/types/database'
 import { formatPrice } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
+import { useFavorites } from '@/hooks/useFavorites'
+import { useCartStore } from '@/stores/cartStore'
+import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 interface ProductCardProps {
@@ -19,32 +23,33 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, variant, className = '', showQuickAdd = true }: ProductCardProps) => {
-  const [isWishlisted, setIsWishlisted] = useState(false)
+  const router = useRouter()
   const [imageError, setImageError] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const { isFavorite, toggleFavorite } = useFavorites()
+  const { addItem } = useCartStore()
 
-  const handleWishlistToggle = (e: React.MouseEvent) => {
+  const handleWishlistToggle = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    setIsWishlisted(!isWishlisted)
-    toast.success(
-      isWishlisted ? 'Retiré des favoris' : 'Ajouté aux favoris',
-      { icon: isWishlisted ? '💔' : '❤️' }
-    )
+    await toggleFavorite(product.id)
   }
 
   const handleQuickView = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // TODO: Open quick view modal
-    console.log('Quick view:', product.name)
+    // Rediriger vers la page produit
+    const productSlug = `${product.name?.toLowerCase().replace(/\s+/g, '-')}-${variant.sku}`.toLowerCase()
+    router.push(`/produit/${productSlug}`)
   }
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const handleQuickAdd = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    // TODO: Open size selector or add to cart
-    toast.success('Produit ajouté au panier !', { icon: '🛍️' })
+
+    // Rediriger vers la page produit pour sélectionner la taille
+    const productSlug = `${product.name?.toLowerCase().replace(/\s+/g, '-')}-${variant.sku}`.toLowerCase()
+    router.push(`/produit/${productSlug}`)
   }
 
   // Create product URL slug
@@ -78,7 +83,7 @@ const ProductCard = ({ product, variant, className = '', showQuickAdd = true }: 
               onClick={handleWishlistToggle}
               className="absolute top-3 right-3 z-10 p-2 bg-white/90 backdrop-blur-sm rounded-full shadow-md hover:bg-white hover:scale-110 transition-all duration-200"
             >
-              {isWishlisted ? (
+              {isFavorite(product.id) ? (
                 <HeartSolidIcon className="h-5 w-5 text-red-500" />
               ) : (
                 <HeartIcon className="h-5 w-5 text-gray-600 hover:text-red-500" />

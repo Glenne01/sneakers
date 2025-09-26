@@ -3,30 +3,129 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
- 
-  UserIcon, 
-  ShoppingBagIcon, 
+import {
+  UserIcon,
+  ShoppingBagIcon,
   Bars3Icon,
   XMarkIcon,
   Cog6ToothIcon,
-  ArrowRightOnRectangleIcon 
+  ArrowRightOnRectangleIcon,
+  HeartIcon,
+  ShoppingCartIcon
 } from '@heroicons/react/24/outline'
 import { useCartStore } from '@/stores/cartStore'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
+import type { User } from '@supabase/supabase-js'
+
+interface UserProfile {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  role: string
+}
 
 const Header = () => {
+  const router = useRouter()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
-  
-  const { getItemsCount, openCart } = useCartStore()
+  const [user, setUser] = useState<User | null>(null)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const { getItemsCount, openCart, clearCart } = useCartStore()
   const cartItemsCount = getItemsCount()
 
   useEffect(() => {
     setMounted(true)
+    checkAuth()
   }, [])
+
+  const checkAuth = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (session?.user) {
+        setUser(session.user)
+        await loadUserProfile(session.user.id)
+      }
+    } catch (error) {
+      console.error('Erreur auth:', error)
+    } finally {
+      setLoading(false)
+    }
+
+    // Écouter les changements d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        setUser(session.user)
+        await loadUserProfile(session.user.id)
+      } else {
+        setUser(null)
+        setUserProfile(null)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }
+
+  const loadUserProfile = async (authUserId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .single()
+
+      if (error) {
+        console.error('Erreur profil:', error)
+        return
+      }
+
+      setUserProfile(data)
+    } catch (error) {
+      console.error('Erreur chargement profil:', error)
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      setIsAccountMenuOpen(false)
+      setLoading(true)
+
+      // Déconnecter de Supabase
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        console.error('Erreur Supabase signOut:', error)
+        toast.error('Erreur lors de la déconnexion')
+        setLoading(false)
+        return
+      }
+
+      // Réinitialiser l'état local immédiatement
+      setUser(null)
+      setUserProfile(null)
+
+      // Vider le panier à la déconnexion
+      clearCart()
+
+      // Notifier le succès et rediriger
+      toast.success('Déconnexion réussie')
+      router.push('/')
+
+    } catch (error) {
+      console.error('Erreur déconnexion:', error)
+      toast.error('Erreur lors de la déconnexion')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const navigationItems = [
     { name: 'Sneakers', href: '/sneakers', gradient: 'from-orange-500 to-red-500' }
@@ -37,7 +136,7 @@ const Header = () => {
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
-          
+
           {/* Mobile Menu Button */}
           <div className="flex items-center md:hidden">
             <Button
@@ -84,7 +183,6 @@ const Header = () => {
             ))}
           </nav>
 
-
           {/* Action Icons */}
           <div className="flex items-center space-x-2 md:space-x-4">
 
@@ -92,11 +190,16 @@ const Header = () => {
             <div className="relative">
               <button
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                className="p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+                className="flex items-center p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-all duration-200 group"
               >
                 <UserIcon className="h-5 w-5 md:h-6 md:w-6 group-hover:scale-110 transition-transform" />
+                {userProfile && (
+                  <span className="ml-2 text-sm font-medium hidden md:block">
+                    {userProfile.first_name}
+                  </span>
+                )}
               </button>
-              
+
               <AnimatePresence>
                 {isAccountMenuOpen && (
                   <motion.div
@@ -105,35 +208,88 @@ const Header = () => {
                     exit={{ opacity: 0, y: 10 }}
                     className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
                   >
-                    <Link
-                      href="/compte"
-                      onClick={() => setIsAccountMenuOpen(false)}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <UserIcon className="h-4 w-4 mr-3" />
-                      Se connecter
-                    </Link>
-                    <Link
-                      href="/settings"
-                      onClick={() => setIsAccountMenuOpen(false)}
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <Cog6ToothIcon className="h-4 w-4 mr-3" />
-                      Paramètres
-                    </Link>
-                    <div className="border-t border-gray-100 my-1"></div>
-                    <button
-                      onClick={() => setIsAccountMenuOpen(false)}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                    >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
-                      Se déconnecter
-                    </button>
+                    {userProfile ? (
+                      <>
+                        {/* Utilisateur connecté */}
+                        <div className="px-4 py-2 border-b border-gray-100">
+                          <p className="text-sm font-medium text-gray-900">
+                            {userProfile.first_name} {userProfile.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500">{userProfile.email}</p>
+                        </div>
+
+                        <Link
+                          href="/settings"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <Cog6ToothIcon className="h-4 w-4 mr-3" />
+                          Mon compte
+                        </Link>
+
+                        <Link
+                          href="/commandes"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <ShoppingCartIcon className="h-4 w-4 mr-3" />
+                          Mes commandes
+                        </Link>
+
+                        <Link
+                          href="/favoris"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <HeartIcon className="h-4 w-4 mr-3" />
+                          Mes favoris
+                        </Link>
+
+                        <Link
+                          href="/sneakers"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <ShoppingBagIcon className="h-4 w-4 mr-3" />
+                          Catalogue
+                        </Link>
+
+                        <div className="border-t border-gray-100 my-1"></div>
+
+                        <button
+                          onClick={handleLogout}
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
+                          Se déconnecter
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Utilisateur non connecté */}
+                        <Link
+                          href="/compte"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <UserIcon className="h-4 w-4 mr-3" />
+                          Se connecter
+                        </Link>
+
+                        <Link
+                          href="/compte?mode=signup"
+                          onClick={() => setIsAccountMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                          <UserIcon className="h-4 w-4 mr-3" />
+                          Créer un compte
+                        </Link>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-
 
             {/* Cart */}
             <button
@@ -154,7 +310,6 @@ const Header = () => {
           </div>
         </div>
       </div>
-
 
       {/* Mobile Menu */}
       <AnimatePresence>
@@ -197,6 +352,16 @@ const Header = () => {
                   </Button>
                 </div>
 
+                {/* User Info (Mobile) */}
+                {userProfile && (
+                  <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                    <p className="font-medium text-gray-900">
+                      {userProfile.first_name} {userProfile.last_name}
+                    </p>
+                    <p className="text-sm text-gray-500">{userProfile.email}</p>
+                  </div>
+                )}
+
                 <nav className="space-y-2">
                   {navigationItems.map((item) => (
                     <Link
@@ -208,6 +373,44 @@ const Header = () => {
                       {item.name}
                     </Link>
                   ))}
+
+                  {/* Auth Links (Mobile) */}
+                  <div className="border-t border-gray-200 pt-4 mt-4">
+                    {userProfile ? (
+                      <>
+                        <Link
+                          href="/settings"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-4 py-3 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200"
+                        >
+                          Mon compte
+                        </Link>
+                        <button
+                          onClick={handleLogout}
+                          className="block w-full text-left px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors duration-200"
+                        >
+                          Se déconnecter
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/compte"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-4 py-3 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200"
+                        >
+                          Se connecter
+                        </Link>
+                        <Link
+                          href="/compte?mode=signup"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                          className="block px-4 py-3 rounded-lg text-gray-700 hover:bg-orange-50 hover:text-orange-500 transition-colors duration-200"
+                        >
+                          Créer un compte
+                        </Link>
+                      </>
+                    )}
+                  </div>
                 </nav>
 
                 {/* Mobile Menu Footer */}

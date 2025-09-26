@@ -31,50 +31,44 @@ interface ChartData {
 const mockStats: Stat[] = [
   {
     name: 'Chiffre d\'affaires',
-    value: '€45,231.89',
-    change: '+20.1%',
-    trend: 'up',
+    value: '€0',
+    change: '0%',
+    trend: 'neutral',
     icon: CurrencyEuroIcon
   },
   {
     name: 'Commandes',
-    value: 1247,
-    change: '+15.3%',
-    trend: 'up',
+    value: 0,
+    change: '0%',
+    trend: 'neutral',
     icon: ShoppingBagIcon
   },
   {
     name: 'Visiteurs uniques',
-    value: '12,234',
-    change: '-2.4%',
-    trend: 'down',
+    value: '0',
+    change: '0%',
+    trend: 'neutral',
     icon: UsersIcon
   },
   {
     name: 'Taux de conversion',
-    value: '3.24%',
-    change: '+1.2%',
-    trend: 'up',
+    value: '0%',
+    change: '0%',
+    trend: 'neutral',
     icon: ChartBarIcon
   }
 ]
 
 const mockChartData: ChartData[] = [
-  { month: 'Jan', sales: 12000, orders: 120, visitors: 4500 },
-  { month: 'Fév', sales: 15000, orders: 150, visitors: 5200 },
-  { month: 'Mar', sales: 18000, orders: 180, visitors: 5800 },
-  { month: 'Avr', sales: 22000, orders: 220, visitors: 6100 },
-  { month: 'Mai', sales: 25000, orders: 250, visitors: 6500 },
-  { month: 'Jun', sales: 28000, orders: 280, visitors: 7200 }
+  { month: 'Jan', sales: 0, orders: 0, visitors: 0 },
+  { month: 'Fév', sales: 0, orders: 0, visitors: 0 },
+  { month: 'Mar', sales: 0, orders: 0, visitors: 0 },
+  { month: 'Avr', sales: 0, orders: 0, visitors: 0 },
+  { month: 'Mai', sales: 0, orders: 0, visitors: 0 },
+  { month: 'Jun', sales: 0, orders: 0, visitors: 0 }
 ]
 
-const topProducts = [
-  { name: 'Handball Spezial Shoes', sales: 145, revenue: 15225 },
-  { name: 'Samba OG Shoes', sales: 132, revenue: 15180 },
-  { name: 'Stan Smith', sales: 98, revenue: 9800 },
-  { name: 'Gazelle', sales: 87, revenue: 8700 },
-  { name: 'Forum Low', sales: 76, revenue: 8360 }
-]
+const topProducts: {name: string, sales: number, revenue: number}[] = []
 
 export default function AnalyticsPage() {
   const { user } = useAdminStore()
@@ -126,11 +120,13 @@ export default function AnalyticsPage() {
                   <div className="flex items-center mt-2">
                     {stat.trend === 'up' ? (
                       <ArrowTrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
-                    ) : (
+                    ) : stat.trend === 'down' ? (
                       <ArrowTrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
+                    ) : (
+                      <div className="w-4 h-4 bg-gray-400 rounded-full mr-1" />
                     )}
                     <span className={`text-sm font-medium ${
-                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                      stat.trend === 'up' ? 'text-green-600' : stat.trend === 'down' ? 'text-red-600' : 'text-gray-600'
                     }`}>
                       {stat.change}
                     </span>
@@ -187,30 +183,40 @@ export default function AnalyticsPage() {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {topProducts.map((product, index) => (
-                  <div key={product.name} className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">
-                          #{index + 1}
-                        </span>
+                {topProducts.length > 0 ? (
+                  topProducts.map((product, index) => (
+                    <div key={product.name} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-gray-200 rounded-lg flex items-center justify-center">
+                          <span className="text-sm font-medium text-gray-600">
+                            #{index + 1}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{product.name}</p>
+                          <p className="text-sm text-gray-500">{product.sales} ventes</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{product.name}</p>
-                        <p className="text-sm text-gray-500">{product.sales} ventes</p>
+                      <div className="text-right">
+                        <p className="font-medium text-gray-900">€{product.revenue.toLocaleString()}</p>
+                        <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
+                          <div
+                            className="bg-orange-500 h-2 rounded-full"
+                            style={{ width: `${(product.sales / 150) * 100}%` }}
+                          />
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium text-gray-900">€{product.revenue.toLocaleString()}</p>
-                      <div className="w-20 bg-gray-200 rounded-full h-2 mt-1">
-                        <div 
-                          className="bg-orange-500 h-2 rounded-full"
-                          style={{ width: `${(product.sales / 150) * 100}%` }}
-                        />
-                      </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <span className="text-gray-400 text-2xl">📊</span>
                     </div>
+                    <p className="text-gray-500 text-sm">Aucune donnée de vente disponible</p>
+                    <p className="text-gray-400 text-xs mt-1">Les statistiques apparaîtront ici lorsque vous aurez des ventes</p>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </motion.div>
@@ -227,21 +233,13 @@ export default function AnalyticsPage() {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {[
-                  { type: 'order', message: 'Nouvelle commande #SNK-003', time: '5 min', color: 'green' },
-                  { type: 'user', message: 'Nouvel utilisateur inscrit', time: '12 min', color: 'blue' },
-                  { type: 'product', message: 'Stock faible: Samba OG', time: '1h', color: 'orange' },
-                  { type: 'order', message: 'Commande #SNK-002 expédiée', time: '2h', color: 'purple' },
-                  { type: 'review', message: 'Nouvel avis 5 étoiles', time: '3h', color: 'yellow' }
-                ].map((activity, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className={`w-2 h-2 bg-${activity.color}-500 rounded-full`} />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-900">{activity.message}</p>
-                      <p className="text-xs text-gray-500">Il y a {activity.time}</p>
-                    </div>
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                    <span className="text-gray-400 text-2xl">⏱️</span>
                   </div>
-                ))}
+                  <p className="text-gray-500 text-sm">Aucune activité récente</p>
+                  <p className="text-gray-400 text-xs mt-1">L'activité de votre boutique apparaîtra ici</p>
+                </div>
               </div>
             </div>
           </motion.div>
@@ -262,39 +260,39 @@ export default function AnalyticsPage() {
                   <span className="text-sm text-gray-600">Taux de conversion</span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '65%' }} />
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }} />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">3.24%</span>
+                    <span className="text-sm font-medium text-gray-900">0%</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Panier moyen</span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
-                      <div className="bg-blue-500 h-2 rounded-full" style={{ width: '78%' }} />
+                      <div className="bg-blue-500 h-2 rounded-full" style={{ width: '0%' }} />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">€156.80</span>
+                    <span className="text-sm font-medium text-gray-900">€0</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Taux de retour</span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
-                      <div className="bg-orange-500 h-2 rounded-full" style={{ width: '12%' }} />
+                      <div className="bg-orange-500 h-2 rounded-full" style={{ width: '0%' }} />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">2.1%</span>
+                    <span className="text-sm font-medium text-gray-900">0%</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Satisfaction client</span>
                   <div className="flex items-center">
                     <div className="w-32 bg-gray-200 rounded-full h-2 mr-3">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '89%' }} />
+                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '0%' }} />
                     </div>
-                    <span className="text-sm font-medium text-gray-900">4.5/5</span>
+                    <span className="text-sm font-medium text-gray-900">0/5</span>
                   </div>
                 </div>
               </div>

@@ -13,30 +13,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { User } from '@/types/admin'
 
-const mockVendors: User[] = [
-  {
-    id: 'v1',
-    email: 'marie.vendor@sneakhouse.fr',
-    firstName: 'Marie',
-    lastName: 'Vendeur',
-    phone: '06 12 34 56 78',
-    role: 'vendor',
-    isActive: true,
-    createdAt: '2024-01-10T10:00:00Z',
-    updatedAt: '2024-01-15T14:30:00Z'
-  },
-  {
-    id: 'v2',
-    email: 'pierre.sales@sneakhouse.fr',
-    firstName: 'Pierre',
-    lastName: 'Commercial',
-    phone: '06 98 76 54 32',
-    role: 'vendor',
-    isActive: true,
-    createdAt: '2024-01-12T11:15:00Z',
-    updatedAt: '2024-01-16T09:20:00Z'
-  }
-]
+const mockVendors: User[] = []
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<User[]>(mockVendors)

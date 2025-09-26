@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
+import {
   MagnifyingGlassIcon,
   FunnelIcon,
   EyeIcon,
-  PencilIcon
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import AdminLayout from '@/components/admin/AdminLayout'
 import { ORDER_STATUSES } from '@/types/admin'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 interface Order {
   id: string
@@ -30,45 +33,72 @@ interface Order {
   shippingAddress: string
 }
 
-const mockOrders: Order[] = [
-  {
-    id: '1',
-    orderNumber: '#SNK-001',
-    customer: {
-      name: 'Jean Dupont',
-      email: 'jean.dupont@email.com'
-    },
-    items: [
-      { name: 'Handball Spezial Shoes', quantity: 1, price: 105 },
-      { name: 'Samba OG Shoes', quantity: 1, price: 115 }
-    ],
-    total: 220,
-    status: 'pending',
-    createdAt: '2024-01-15T10:30:00Z',
-    shippingAddress: '123 Rue de la Paix, 75001 Paris'
-  },
-  {
-    id: '2',
-    orderNumber: '#SNK-002',
-    customer: {
-      name: 'Marie Martin',
-      email: 'marie.martin@email.com'
-    },
-    items: [
-      { name: 'Samba OG Shoes', quantity: 2, price: 115 }
-    ],
-    total: 230,
-    status: 'shipped',
-    createdAt: '2024-01-14T15:45:00Z',
-    shippingAddress: '456 Avenue des Champs, 69001 Lyon'
-  }
-]
-
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>(mockOrders)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+
+  // Charger les commandes depuis la base de données
+  useEffect(() => {
+    loadOrders()
+  }, [])
+
+  const loadOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users!orders_user_id_fkey (
+            first_name,
+            last_name,
+            email
+          ),
+          order_items (
+            *,
+            product_variants (
+              product_name: products!product_variants_product_id_fkey (name)
+            ),
+            sizes (size_display)
+          )
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      // Mapper les données de la base vers le format Order
+      const mappedOrders: Order[] = (data || []).map(order => ({
+        id: order.id,
+        orderNumber: order.order_number || '',
+        customer: {
+          name: `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim() || 'Anonyme',
+          email: order.users?.email || ''
+        },
+        items: (order.order_items || []).map((item: any) => ({
+          name: item.product_variants?.product_name?.[0]?.name || item.product_name || '',
+          quantity: item.quantity || 1,
+          price: parseFloat(item.unit_price) || 0
+        })),
+        total: parseFloat(order.total_amount) || 0,
+        status: order.status || 'pending',
+        createdAt: order.created_at || new Date().toISOString(),
+        shippingAddress: typeof order.shipping_address === 'object' && order.shipping_address
+          ? `${order.shipping_address.address || ''}, ${order.shipping_address.city || ''} ${order.shipping_address.postal_code || ''}`
+          : 'Adresse non disponible'
+      }))
+
+      setOrders(mappedOrders)
+    } catch (error) {
+      console.error('Erreur lors du chargement des commandes:', error)
+      toast.error('Erreur lors du chargement des commandes')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -91,10 +121,66 @@ export default function OrdersPage() {
     return { ...config, className: colorClasses[config.color] }
   }
 
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ))
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', orderId)
+
+      if (error) throw error
+
+      setOrders(prev => prev.map(order =>
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ))
+
+      toast.success('Statut de commande mis à jour avec succès')
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error)
+      toast.error('Erreur lors de la mise à jour du statut')
+    }
+  }
+
+  const deleteOrder = async (orderId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.')) {
+      try {
+        // Supprimer d'abord les articles de la commande
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', orderId)
+
+        if (itemsError) throw itemsError
+
+        // Supprimer les paiements
+        const { error: paymentsError } = await supabase
+          .from('payments')
+          .delete()
+          .eq('order_id', orderId)
+
+        if (paymentsError) throw paymentsError
+
+        // Supprimer la commande
+        const { error: orderError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId)
+
+        if (orderError) throw orderError
+
+        setOrders(prev => prev.filter(order => order.id !== orderId))
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null)
+        }
+        toast.success('Commande supprimée avec succès')
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        toast.error('Erreur lors de la suppression de la commande')
+      }
+    }
   }
 
   const formatDate = (dateString: string) => {
@@ -180,67 +266,99 @@ export default function OrdersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredOrders.map((order) => {
-                  const statusConfig = getStatusConfig(order.status)
-                  return (
-                    <motion.tr
-                      key={order.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {order.orderNumber}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
+                {loading ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                      </div>
+                      <p className="text-gray-500 mt-2">Chargement des commandes...</p>
+                    </td>
+                  </tr>
+                ) : filteredOrders.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <span className="text-gray-400 text-2xl">📦</span>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Aucune commande trouvée</h3>
+                      <p className="text-gray-500">
+                        {searchTerm || statusFilter !== 'all'
+                          ? 'Essayez de modifier vos filtres de recherche.'
+                          : 'Les nouvelles commandes apparaîtront ici automatiquement.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredOrders.map((order) => {
+                    const statusConfig = getStatusConfig(order.status)
+                    return (
+                      <motion.tr
+                        key={order.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="hover:bg-gray-50"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {order.customer.name}
+                            {order.orderNumber}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {order.customer.name}
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {order.customer.email}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-gray-900">
+                            {order.items.length} article{order.items.length > 1 ? 's' : ''}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {order.customer.email}
+                            {order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">
-                          {order.items.length} article{order.items.length > 1 ? 's' : ''}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {order.items.map(item => `${item.quantity}x ${item.name}`).join(', ')}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          €{order.total.toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusConfig.className}`}>
-                          {statusConfig.name}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(order.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                        <button
-                          onClick={() => setSelectedOrder(order)}
-                          className="text-orange-600 hover:text-orange-900 inline-flex items-center"
-                        >
-                          <EyeIcon className="h-4 w-4 mr-1" />
-                          Voir
-                        </button>
-                        <button className="text-gray-600 hover:text-gray-900 inline-flex items-center">
-                          <PencilIcon className="h-4 w-4 mr-1" />
-                          Modifier
-                        </button>
-                      </td>
-                    </motion.tr>
-                  )
-                })}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            €{order.total.toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusConfig.className}`}>
+                            {statusConfig.name}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(order.createdAt)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                          <button
+                            onClick={() => setSelectedOrder(order)}
+                            className="text-orange-600 hover:text-orange-900 inline-flex items-center"
+                          >
+                            <EyeIcon className="h-4 w-4 mr-1" />
+                            Voir
+                          </button>
+                          <button className="text-gray-600 hover:text-gray-900 inline-flex items-center">
+                            <PencilIcon className="h-4 w-4 mr-1" />
+                            Modifier
+                          </button>
+                          <button
+                            onClick={() => deleteOrder(order.id)}
+                            className="text-red-600 hover:text-red-900 inline-flex items-center"
+                          >
+                            <TrashIcon className="h-4 w-4 mr-1" />
+                            Supprimer
+                          </button>
+                        </td>
+                      </motion.tr>
+                    )
+                  })
+                )}
               </tbody>
             </table>
           </div>

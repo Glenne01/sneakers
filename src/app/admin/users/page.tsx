@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
+import {
   MagnifyingGlassIcon,
   EyeIcon,
   PencilIcon,
@@ -12,47 +12,53 @@ import {
 import AdminLayout from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { User } from '@/types/admin'
-
-const mockUsers: User[] = [
-  {
-    id: 'u1',
-    email: 'jean.dupont@gmail.com',
-    firstName: 'Jean',
-    lastName: 'Dupont',
-    phone: '06 12 34 56 78',
-    role: 'user',
-    isActive: true,
-    createdAt: '2024-01-10T10:00:00Z',
-    updatedAt: '2024-01-15T14:30:00Z'
-  },
-  {
-    id: 'u2',
-    email: 'marie.martin@gmail.com',
-    firstName: 'Marie',
-    lastName: 'Martin',
-    phone: '06 98 76 54 32',
-    role: 'user',
-    isActive: true,
-    createdAt: '2024-01-12T11:15:00Z',
-    updatedAt: '2024-01-16T09:20:00Z'
-  },
-  {
-    id: 'u3',
-    email: 'pierre.durand@hotmail.fr',
-    firstName: 'Pierre',
-    lastName: 'Durand',
-    role: 'user',
-    isActive: false,
-    createdAt: '2024-01-08T15:45:00Z',
-    updatedAt: '2024-01-10T12:10:00Z'
-  }
-]
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+  // Charger les utilisateurs depuis la base de données
+  useEffect(() => {
+    loadUsers()
+  }, [])
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        throw error
+      }
+
+      // Mapper les données de la base vers le format User
+      const mappedUsers: User[] = (data || []).map(user => ({
+        id: user.id,
+        email: user.email || '',
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        phone: user.phone,
+        role: user.role || 'customer',
+        isActive: user.is_active ?? true,
+        createdAt: user.created_at || new Date().toISOString(),
+        updatedAt: user.updated_at || new Date().toISOString()
+      }))
+
+      setUsers(mappedUsers)
+    } catch (error) {
+      console.error('Erreur lors du chargement des utilisateurs:', error)
+      toast.error('Erreur lors du chargement des utilisateurs')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -64,15 +70,51 @@ export default function UsersPage() {
     return matchesSearch && matchesStatus
   })
 
-  const toggleUserStatus = (userId: string) => {
-    setUsers(prev => prev.map(user =>
-      user.id === userId ? { ...user, isActive: !user.isActive } : user
-    ))
+  const toggleUserStatus = async (userId: string) => {
+    try {
+      const user = users.find(u => u.id === userId)
+      if (!user) return
+
+      const newStatus = !user.isActive
+
+      const { error } = await supabase
+        .from('users')
+        .update({ is_active: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+
+      if (error) {
+        throw error
+      }
+
+      setUsers(prev => prev.map(user =>
+        user.id === userId ? { ...user, isActive: newStatus } : user
+      ))
+
+      toast.success(`Utilisateur ${newStatus ? 'activé' : 'désactivé'} avec succès`)
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour du statut:', error)
+      toast.error('Erreur lors de la mise à jour du statut')
+    }
   }
 
-  const deleteUser = (userId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ?')) {
-      setUsers(prev => prev.filter(user => user.id !== userId))
+  const deleteUser = async (userId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet utilisateur ? Cette action est irréversible.')) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .delete()
+          .eq('id', userId)
+
+        if (error) {
+          throw error
+        }
+
+        setUsers(prev => prev.filter(user => user.id !== userId))
+        toast.success('Utilisateur supprimé avec succès')
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        toast.error('Erreur lors de la suppression de l\'utilisateur')
+      }
     }
   }
 
@@ -233,7 +275,31 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex justify-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                      </div>
+                      <p className="text-gray-500 mt-2">Chargement des utilisateurs...</p>
+                    </td>
+                  </tr>
+                ) : filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                        <span className="text-gray-400 text-2xl">👥</span>
+                      </div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun utilisateur trouvé</h3>
+                      <p className="text-gray-500">
+                        {searchTerm || statusFilter !== 'all'
+                          ? 'Essayez de modifier vos filtres de recherche.'
+                          : 'Les nouveaux utilisateurs apparaîtront ici automatiquement.'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => (
                   <motion.tr
                     key={user.id}
                     initial={{ opacity: 0 }}
@@ -309,7 +375,8 @@ export default function UsersPage() {
                       </button>
                     </td>
                   </motion.tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

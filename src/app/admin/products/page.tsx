@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import { 
@@ -14,6 +14,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import { Button } from '@/components/ui/Button'
 import { useAdminStore } from '@/stores/adminStore'
 import { usePermissions } from '@/hooks/usePermissions'
+import { getProducts, ProductWithVariants } from '@/lib/products'
 
 interface Product {
   id: string
@@ -35,58 +36,29 @@ interface Product {
   createdAt: string
 }
 
-const mockProducts: Product[] = [
-  {
-    id: '1',
-    name: 'Handball Spezial Shoes',
-    description: 'Chaussure de handball iconique revisitée pour la rue.',
-    basePrice: 105,
-    gender: 'homme',
-    brand: 'Adidas',
-    category: 'Sneakers',
-    isActive: true,
-    variants: [
-      {
-        id: 'v1',
-        sku: 'HANDBALL-SPEZIAL-001',
-        color: 'Bleu/Blanc',
-        price: 105,
-        imageUrl: 'https://assets.adidas.com/images/w_383,h_383,f_auto,q_auto,fl_lossy,c_fill,g_auto/08c7c0fc4ae84932864226ad74075e6e_9366/handball-spezial-shoes.jpg',
-        stock: 45
-      }
-    ],
-    createdAt: '2024-01-10T10:00:00Z'
-  },
-  {
-    id: '2',
-    name: 'Samba OG Shoes',
-    description: 'La légendaire Samba dans sa version originale.',
-    basePrice: 115,
-    gender: 'homme',
-    brand: 'Adidas',
-    category: 'Sneakers',
-    isActive: true,
-    variants: [
-      {
-        id: 'v2',
-        sku: 'SAMBA-OG-001',
-        color: 'Noir/Blanc',
-        price: 115,
-        imageUrl: 'https://assets.adidas.com/images/w_383,h_383,f_auto,q_auto,fl_lossy,c_fill,g_auto/49d73d8eaccb48ee89ee3feb82ce098c_9366/samba-og-shoes.jpg',
-        stock: 32
-      }
-    ],
-    createdAt: '2024-01-12T14:30:00Z'
-  }
-]
-
 export default function ProductsPage() {
   const { user } = useAdminStore()
   const { hasPermission } = usePermissions(user?.role || 'user')
-  const [products, setProducts] = useState<Product[]>(mockProducts)
+  const [products, setProducts] = useState<ProductWithVariants[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithVariants | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        const fetchedProducts = await getProducts()
+        setProducts(fetchedProducts)
+      } catch (error) {
+        console.error('Erreur lors du chargement des produits:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProducts()
+  }, [])
 
   const canCreate = hasPermission('products', 'create')
   const canUpdate = hasPermission('products', 'update')
@@ -94,19 +66,27 @@ export default function ProductsPage() {
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    product.brand?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const toggleProductStatus = (productId: string) => {
+  const toggleProductStatus = async (productId: string) => {
+    // TODO: Appel API pour activer/désactiver le produit
     setProducts(prev => prev.map(product =>
-      product.id === productId ? { ...product, isActive: !product.isActive } : product
+      product.id === productId ? { ...product, is_active: !product.is_active } : product
     ))
   }
 
-  const deleteProduct = (productId: string) => {
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ?')) {
-      setProducts(prev => prev.filter(product => product.id !== productId))
+  const deleteProduct = async (productId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.')) {
+      try {
+        // TODO: Appel API pour supprimer le produit
+        // Supprimer de l'état local en attendant
+        setProducts(prev => prev.filter(product => product.id !== productId))
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        alert('Erreur lors de la suppression du produit')
+      }
     }
   }
 
@@ -150,8 +130,32 @@ export default function ProductsPage() {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProducts.map((product) => (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-soft overflow-hidden">
+                <div className="aspect-square bg-gray-200 animate-pulse" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+              <span className="text-gray-400 text-2xl">📦</span>
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun produit trouvé</h3>
+            <p className="text-gray-500 mb-6">
+              {searchTerm ? 'Essayez de modifier vos critères de recherche.' : 'Aucun produit n\'a été trouvé dans la base de données.'}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((product) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 20 }}
@@ -160,18 +164,18 @@ export default function ProductsPage() {
             >
               <div className="relative aspect-square">
                 <Image
-                  src={product.variants[0]?.imageUrl || '/placeholder-sneaker.jpg'}
+                  src={product.variants[0]?.image_url || '/placeholder-sneaker.jpg'}
                   alt={product.name}
                   fill
                   className="object-cover"
                 />
                 <div className="absolute top-4 right-4">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    product.isActive 
-                      ? 'bg-green-100 text-green-800' 
+                    product.is_active
+                      ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {product.isActive ? 'Actif' : 'Inactif'}
+                    {product.is_active ? 'Actif' : 'Inactif'}
                   </span>
                 </div>
               </div>
@@ -180,15 +184,15 @@ export default function ProductsPage() {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
-                    <p className="text-sm text-gray-600 mb-2">{product.brand} • {product.category}</p>
+                    <p className="text-sm text-gray-600 mb-2">{product.brand?.name} • {product.category?.name}</p>
                   </div>
-                  <span className="text-lg font-bold text-gray-900">€{product.basePrice}</span>
+                  <span className="text-lg font-bold text-gray-900">€{product.base_price}</span>
                 </div>
-                
+
                 <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                
+
                 <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                  <span>Stock: {product.variants.reduce((sum, v) => sum + v.stock, 0)}</span>
+                  <span>{product.variants?.length || 0} variant{product.variants?.length !== 1 ? 's' : ''}</span>
                   <span className="capitalize">{product.gender}</span>
                 </div>
 
@@ -227,8 +231,9 @@ export default function ProductsPage() {
                 </div>
               </div>
             </motion.div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Product Detail Modal */}
         {selectedProduct && (
@@ -249,7 +254,7 @@ export default function ProductsPage() {
                     {/* Image */}
                     <div className="relative aspect-square rounded-lg overflow-hidden">
                       <Image
-                        src={selectedProduct.variants[0]?.imageUrl || '/placeholder-sneaker.jpg'}
+                        src={selectedProduct.variants[0]?.image_url || '/placeholder-sneaker.jpg'}
                         alt={selectedProduct.name}
                         fill
                         className="object-cover"
@@ -261,11 +266,11 @@ export default function ProductsPage() {
                       <div>
                         <h3 className="font-medium text-gray-900 mb-2">Informations générales</h3>
                         <div className="space-y-2 text-sm">
-                          <p><span className="font-medium">Marque:</span> {selectedProduct.brand}</p>
-                          <p><span className="font-medium">Catégorie:</span> {selectedProduct.category}</p>
+                          <p><span className="font-medium">Marque:</span> {selectedProduct.brand?.name}</p>
+                          <p><span className="font-medium">Catégorie:</span> {selectedProduct.category?.name}</p>
                           <p><span className="font-medium">Genre:</span> {selectedProduct.gender}</p>
-                          <p><span className="font-medium">Prix de base:</span> €{selectedProduct.basePrice}</p>
-                          <p><span className="font-medium">Créé le:</span> {formatDate(selectedProduct.createdAt)}</p>
+                          <p><span className="font-medium">Prix de base:</span> €{selectedProduct.base_price}</p>
+                          <p><span className="font-medium">Créé le:</span> {formatDate(selectedProduct.created_at)}</p>
                         </div>
                       </div>
 
@@ -277,7 +282,7 @@ export default function ProductsPage() {
                       <div>
                         <h3 className="font-medium text-gray-900 mb-2">Variantes</h3>
                         <div className="space-y-2">
-                          {selectedProduct.variants.map(variant => (
+                          {selectedProduct.variants?.map(variant => (
                             <div key={variant.id} className="p-3 bg-gray-50 rounded-lg">
                               <div className="flex justify-between items-center">
                                 <div>
@@ -286,11 +291,13 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="text-right">
                                   <p className="font-medium">€{variant.price}</p>
-                                  <p className="text-sm text-gray-600">Stock: {variant.stock}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {variant.is_active ? 'Actif' : 'Inactif'}
+                                  </p>
                                 </div>
                               </div>
                             </div>
-                          ))}
+                          )) || <p className="text-sm text-gray-500">Aucune variante</p>}
                         </div>
                       </div>
                     </div>

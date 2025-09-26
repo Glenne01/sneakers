@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import Link from 'next/link'
 import { 
   ShoppingBagIcon, 
   UsersIcon, 
@@ -14,6 +15,7 @@ import AdminLayout from '@/components/admin/AdminLayout'
 import { useAdminStore, loginAsAdmin, loginAsVendor } from '@/stores/adminStore'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Button } from '@/components/ui/Button'
+import { supabase } from '@/lib/supabase'
 
 interface StatCard {
   title: string
@@ -28,54 +30,84 @@ export default function AdminDashboard() {
   const { user, isAuthenticated } = useAdminStore()
   const { canAccess } = usePermissions(user?.role || 'user')
   const [stats, setStats] = useState<StatCard[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Mock stats - à remplacer par de vraies données
-    const mockStats: StatCard[] = [
-      {
-        title: 'Commandes totales',
-        value: 1247,
-        change: '+12.5%',
-        trend: 'up',
-        icon: ShoppingBagIcon,
-        color: 'bg-blue-500'
-      },
-      {
-        title: 'Revenus',
-        value: '€24,567',
-        change: '+8.2%',
-        trend: 'up',
-        icon: CurrencyEuroIcon,
-        color: 'bg-green-500'
-      },
-      {
-        title: 'Utilisateurs',
-        value: 892,
-        change: '+3.1%',
-        trend: 'up',
-        icon: UsersIcon,
-        color: 'bg-purple-500'
-      },
+    loadRealStats()
+  }, [])
+
+  const loadRealStats = async () => {
+    try {
+      // Charger les vraies statistiques depuis la base de données
+      const [ordersResult, usersResult, productsResult] = await Promise.all([
+        supabase.from('orders').select('id, total_amount'),
+        supabase.from('users').select('id').eq('role', 'customer'),
+        supabase.from('products').select('id')
+      ])
+
+      const ordersCount = ordersResult.data?.length || 0
+      const totalRevenue = ordersResult.data?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0
+      const usersCount = usersResult.data?.length || 0
+      const productsCount = productsResult.data?.length || 0
+
+      const realStats: StatCard[] = [
+        {
+          title: 'Commandes totales',
+          value: ordersCount,
+          change: '0%',
+          trend: 'neutral',
+          icon: ShoppingBagIcon,
+          color: 'bg-blue-500'
+        },
+        {
+          title: 'Revenus',
+          value: `€${totalRevenue.toFixed(2)}`,
+          change: '0%',
+          trend: 'neutral',
+          icon: CurrencyEuroIcon,
+          color: 'bg-green-500'
+        },
+        {
+          title: 'Utilisateurs',
+          value: usersCount,
+          change: '0%',
+          trend: 'neutral',
+          icon: UsersIcon,
+          color: 'bg-purple-500'
+        },
       {
         title: 'Produits',
-        value: 156,
-        change: '+5.7%',
-        trend: 'up',
+        value: productsCount,
+        change: '0%',
+        trend: 'neutral',
         icon: CubeIcon,
         color: 'bg-orange-500'
       }
     ]
 
-    // Filtrer les stats selon les permissions
-    const filteredStats = mockStats.filter(stat => {
-      if (stat.title.includes('Commandes') && !canAccess('orders')) return false
-      if (stat.title.includes('Utilisateurs') && !canAccess('users')) return false
-      if (stat.title.includes('Produits') && !canAccess('products')) return false
-      return true
-    })
+      // Filtrer les stats selon les permissions
+      const filteredStats = realStats.filter(stat => {
+        if (stat.title.includes('Commandes') && !canAccess('orders')) return false
+        if (stat.title.includes('Utilisateurs') && !canAccess('users')) return false
+        if (stat.title.includes('Produits') && !canAccess('products')) return false
+        return true
+      })
 
-    setStats(filteredStats)
-  }, [canAccess])
+      setStats(filteredStats)
+    } catch (error) {
+      console.error('Erreur lors du chargement des statistiques:', error)
+      // Fallback avec des valeurs par défaut
+      const fallbackStats = [
+        { title: 'Commandes totales', value: 0, change: '0%', trend: 'neutral', icon: ShoppingBagIcon, color: 'bg-blue-500' },
+        { title: 'Revenus', value: '€0', change: '0%', trend: 'neutral', icon: CurrencyEuroIcon, color: 'bg-green-500' },
+        { title: 'Utilisateurs', value: 0, change: '0%', trend: 'neutral', icon: UsersIcon, color: 'bg-purple-500' },
+        { title: 'Produits', value: 0, change: '0%', trend: 'neutral', icon: CubeIcon, color: 'bg-orange-500' }
+      ]
+      setStats(fallbackStats)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   // Écran de connexion pour développement
   if (!isAuthenticated || !user) {
@@ -113,11 +145,7 @@ export default function AdminDashboard() {
     )
   }
 
-  const recentOrders = [
-    { id: '#1234', customer: 'Jean Dupont', amount: '€129.99', status: 'delivered', time: '2h' },
-    { id: '#1235', customer: 'Marie Martin', amount: '€89.99', status: 'processing', time: '5h' },
-    { id: '#1236', customer: 'Pierre Durand', amount: '€199.99', status: 'shipped', time: '1d' }
-  ]
+  const recentOrders: any[] = []
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -194,31 +222,39 @@ export default function AdminDashboard() {
               </div>
               <div className="p-6">
                 <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-shrink-0">
-                          <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                  {recentOrders.length > 0 ? (
+                    recentOrders.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0">
+                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">{order.id}</p>
+                            <p className="text-sm text-gray-500">{order.customer}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{order.id}</p>
-                          <p className="text-sm text-gray-500">{order.customer}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                          {order.status}
-                        </span>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{order.amount}</p>
-                          <div className="flex items-center text-xs text-gray-500">
-                            <ClockIcon className="h-3 w-3 mr-1" />
-                            {order.time}
+                        <div className="flex items-center space-x-4">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
+                            {order.status}
+                          </span>
+                          <div className="text-right">
+                            <p className="text-sm font-medium text-gray-900">{order.amount}</p>
+                            <div className="flex items-center text-xs text-gray-500">
+                              <ClockIcon className="h-3 w-3 mr-1" />
+                              {order.time}
+                            </div>
                           </div>
                         </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <ShoppingBagIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 text-sm">Aucune commande récente</p>
+                      <p className="text-gray-400 text-xs mt-1">Les nouvelles commandes apparaîtront ici</p>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -237,22 +273,28 @@ export default function AdminDashboard() {
             <div className="p-6">
               <div className="space-y-3">
                 {canAccess('products') && (
-                  <Button className="w-full justify-start" variant="secondary">
-                    <CubeIcon className="h-4 w-4 mr-2" />
-                    Ajouter un produit
-                  </Button>
+                  <Link href="/admin/products">
+                    <Button className="w-full justify-start" variant="secondary">
+                      <CubeIcon className="h-4 w-4 mr-2" />
+                      Ajouter un produit
+                    </Button>
+                  </Link>
                 )}
                 {canAccess('orders') && (
-                  <Button className="w-full justify-start" variant="secondary">
-                    <ShoppingBagIcon className="h-4 w-4 mr-2" />
-                    Voir les commandes
-                  </Button>
+                  <Link href="/admin/orders">
+                    <Button className="w-full justify-start" variant="secondary">
+                      <ShoppingBagIcon className="h-4 w-4 mr-2" />
+                      Voir les commandes
+                    </Button>
+                  </Link>
                 )}
                 {canAccess('users') && (
-                  <Button className="w-full justify-start" variant="secondary">
-                    <UsersIcon className="h-4 w-4 mr-2" />
-                    Gérer les utilisateurs
-                  </Button>
+                  <Link href="/admin/users">
+                    <Button className="w-full justify-start" variant="secondary">
+                      <UsersIcon className="h-4 w-4 mr-2" />
+                      Gérer les utilisateurs
+                    </Button>
+                  </Link>
                 )}
               </div>
             </div>

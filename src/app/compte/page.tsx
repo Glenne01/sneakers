@@ -6,6 +6,7 @@ import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { supabase } from '@/lib/supabase'
 
 interface LoginForm {
   email: string
@@ -39,23 +40,62 @@ export default function ComptePage() {
 
   const onLoginSubmit = async (data: LoginForm) => {
     try {
-      // TODO: Implement login with Supabase
-      console.log('Login data:', data)
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+
+      if (error) {
+        throw new Error(error.message)
+      }
+
       toast.success('Connexion réussie !')
       // Redirect to settings or home
-    } catch {
-      toast.error('Erreur de connexion')
+      window.location.href = '/settings'
+    } catch (error: any) {
+      console.error('Login error:', error)
+      toast.error(error.message || 'Erreur de connexion')
     }
   }
 
   const onRegisterSubmit = async (data: RegisterForm) => {
     try {
-      // TODO: Implement registration with Supabase
-      console.log('Register data:', data)
+      // 1. Créer un utilisateur dans Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+      })
+
+      if (authError) {
+        throw new Error(authError.message)
+      }
+
+      if (!authData.user) {
+        throw new Error('Erreur lors de la création du compte')
+      }
+
+      // 2. Créer l'enregistrement utilisateur dans la table users
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          auth_user_id: authData.user.id,
+          email: data.email,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone: data.phone,
+          role: 'customer',
+          is_active: true
+        })
+
+      if (userError) {
+        throw new Error(userError.message)
+      }
+
       toast.success('Compte créé avec succès !')
       setIsLogin(true)
-    } catch {
-      toast.error('Erreur lors de la création du compte')
+    } catch (error: any) {
+      console.error('Registration error:', error)
+      toast.error(error.message || 'Erreur lors de la création du compte')
     }
   }
 

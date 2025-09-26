@@ -1,31 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  UserIcon, 
-  MapPinIcon, 
-  ShoppingBagIcon, 
-  HeartIcon, 
+import {
+  UserIcon,
+  MapPinIcon,
+  ShoppingBagIcon,
+  HeartIcon,
   BellIcon,
   ShieldCheckIcon,
   ChevronRightIcon,
   PencilIcon,
   TrashIcon,
   PlusIcon,
-  CheckIcon
+  CheckIcon,
+  ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
+import { supabase } from '@/lib/supabase'
+import { formatPrice } from '@/lib/utils'
+import type { User } from '@supabase/supabase-js'
 
 interface UserProfile {
-  firstName: string
-  lastName: string
+  id: string
+  first_name: string
+  last_name: string
   email: string
   phone: string
-  dateOfBirth: string
+  date_of_birth: string
+  role: string
+  created_at: string
 }
 
 interface Address {
@@ -34,17 +42,40 @@ interface Address {
   name: string
   address: string
   city: string
-  postalCode: string
+  postal_code: string
   country: string
-  isDefault: boolean
+  is_default: boolean
+  user_id: string
 }
 
 interface Order {
   id: string
-  date: string
-  status: 'delivered' | 'in_transit' | 'processing' | 'cancelled'
-  total: number
-  items: number
+  order_number: string
+  created_at: string
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  total_amount: string
+  users: {
+    first_name: string
+    last_name: string
+    email: string
+  } | null
+  order_items: Array<{
+    id: string
+    quantity: number
+    price: string
+    product_variants: {
+      id: string
+      price: string
+      products: {
+        name: string
+        brand: string
+        images: string[]
+      }
+    } | null
+    sizes: {
+      size: string
+    } | null
+  }>
 }
 
 interface FavoriteItem {
@@ -56,59 +87,122 @@ interface FavoriteItem {
   color: string
 }
 
-const mockOrders: Order[] = [
-  {
-    id: 'ORD-001',
-    date: '2024-09-20',
-    status: 'delivered',
-    total: 105,
-    items: 1
-  },
-  {
-    id: 'ORD-002', 
-    date: '2024-09-18',
-    status: 'in_transit',
-    total: 230,
-    items: 2
-  }
-]
-
-const mockFavorites: FavoriteItem[] = [
-  {
-    id: '1',
-    name: 'Handball Spezial Shoes',
-    brand: 'Adidas',
-    price: 105,
-    image: 'https://assets.adidas.com/images/w_383,h_383,f_auto,q_auto,fl_lossy,c_fill,g_auto/08c7c0fc4ae849328c0546ad74075e6e_9366/chaussure-handball-spezial.jpg',
-    color: 'Noir/Blanc'
-  }
-]
-
 export default function SettingsPage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState('profile')
-  const [, setEditingAddress] = useState<string | null>(null)
-  const [addresses, setAddresses] = useState<Address[]>([
-    {
-      id: '1',
-      label: 'Domicile',
-      name: 'Jean Dupont',
-      address: '123 Rue de la Paix',
-      city: 'Paris',
-      postalCode: '75001',
-      country: 'France',
-      isDefault: true
-    }
-  ])
 
-  const { register, handleSubmit, formState: { errors } } = useForm<UserProfile>({
-    defaultValues: {
-      firstName: 'Jean',
-      lastName: 'Dupont', 
-      email: 'jean.dupont@example.com',
-      phone: '06 12 34 56 78',
-      dateOfBirth: '1990-01-01'
+  useEffect(() => {
+    // Vérifier les paramètres URL pour les onglets
+    const urlParams = new URLSearchParams(window.location.search)
+    const tab = urlParams.get('tab')
+    if (tab && ['profile', 'addresses', 'orders', 'favorites', 'notifications', 'security'].includes(tab)) {
+      setActiveTab(tab)
     }
-  })
+  }, [])
+  const [, setEditingAddress] = useState<string | null>(null)
+  const [addresses, setAddresses] = useState<Address[]>([])
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [authUser, setAuthUser] = useState<User | null>(null)
+
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<{
+    first_name: string
+    last_name: string
+    email: string
+    phone: string
+    date_of_birth: string
+  }>()
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  const checkAuth = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession()
+
+      if (error || !session) {
+        router.push('/compte')
+        return
+      }
+
+      setAuthUser(session.user)
+      await loadUserData(session.user.id)
+    } catch (error) {
+      console.error('Erreur d\'authentification:', error)
+      router.push('/compte')
+    }
+  }
+
+  const loadUserData = async (authUserId: string) => {
+    try {
+      setLoading(true)
+
+      // Charger le profil utilisateur
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('auth_user_id', authUserId)
+        .single()
+
+      if (userError) {
+        console.error('Erreur lors du chargement du profil:', userError)
+        return
+      }
+
+      setUserProfile(userData)
+      reset({
+        first_name: userData.first_name || '',
+        last_name: userData.last_name || '',
+        email: userData.email || '',
+        phone: userData.phone || '',
+        date_of_birth: userData.date_of_birth || ''
+      })
+
+      // Charger les commandes
+      const { data: ordersData, error: ordersError } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          users!orders_user_id_fkey (first_name, last_name, email),
+          order_items (
+            *,
+            product_variants (
+              *,
+              products (name, brand, images)
+            ),
+            sizes (size)
+          )
+        `)
+        .eq('user_id', userData.id)
+        .order('created_at', { ascending: false })
+
+      if (ordersError) {
+        console.error('Erreur lors du chargement des commandes:', ordersError)
+      } else {
+        setOrders(ordersData || [])
+      }
+
+      // Charger les adresses
+      const { data: addressesData, error: addressesError } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', userData.id)
+        .order('created_at', { ascending: false })
+
+      if (addressesError) {
+        console.error('Erreur lors du chargement des adresses:', addressesError)
+      } else {
+        setAddresses(addressesData || [])
+      }
+
+    } catch (error) {
+      console.error('Erreur lors du chargement des données:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const tabs = [
     { id: 'profile', name: 'Profil', icon: UserIcon },
@@ -122,8 +216,9 @@ export default function SettingsPage() {
   const getOrderStatusColor = (status: Order['status']) => {
     switch (status) {
       case 'delivered': return 'text-green-600 bg-green-100'
-      case 'in_transit': return 'text-blue-600 bg-blue-100'  
+      case 'shipped': return 'text-blue-600 bg-blue-100'
       case 'processing': return 'text-yellow-600 bg-yellow-100'
+      case 'pending': return 'text-orange-600 bg-orange-100'
       case 'cancelled': return 'text-red-600 bg-red-100'
       default: return 'text-gray-600 bg-gray-100'
     }
@@ -132,39 +227,154 @@ export default function SettingsPage() {
   const getOrderStatusText = (status: Order['status']) => {
     switch (status) {
       case 'delivered': return 'Livrée'
-      case 'in_transit': return 'En transit'
+      case 'shipped': return 'Expédiée'
       case 'processing': return 'En préparation'
+      case 'pending': return 'En attente'
       case 'cancelled': return 'Annulée'
       default: return 'Inconnue'
     }
   }
 
-  const onProfileSubmit = async (data: UserProfile) => {
+  const onProfileSubmit = async (data: {
+    first_name: string
+    last_name: string
+    email: string
+    phone: string
+    date_of_birth: string
+  }) => {
     try {
-      console.log('Profile update:', data)
+      if (!userProfile) return
+
+      const { error } = await supabase
+        .from('users')
+        .update({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          phone: data.phone,
+          date_of_birth: data.date_of_birth
+        })
+        .eq('id', userProfile.id)
+
+      if (error) {
+        console.error('Erreur de mise à jour:', error)
+        toast.error('Erreur lors de la mise à jour du profil')
+        return
+      }
+
+      // Mettre à jour le profil local
+      setUserProfile(prev => prev ? {
+        ...prev,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone: data.phone,
+        date_of_birth: data.date_of_birth
+      } : null)
+
       toast.success('Profil mis à jour avec succès !')
-    } catch {
+    } catch (error) {
+      console.error('Erreur:', error)
       toast.error('Erreur lors de la mise à jour du profil')
     }
   }
 
-  const handleDeleteAddress = (id: string) => {
-    setAddresses(prev => prev.filter(addr => addr.id !== id))
-    toast.success('Adresse supprimée')
+  const handleDeleteAddress = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('addresses')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Erreur de suppression:', error)
+        toast.error('Erreur lors de la suppression de l\'adresse')
+        return
+      }
+
+      setAddresses(prev => prev.filter(addr => addr.id !== id))
+      toast.success('Adresse supprimée')
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error('Erreur lors de la suppression de l\'adresse')
+    }
   }
 
-  const handleSetDefaultAddress = (id: string) => {
-    setAddresses(prev => prev.map(addr => ({
-      ...addr,
-      isDefault: addr.id === id
-    })))
-    toast.success('Adresse par défaut mise à jour')
+  const handleSetDefaultAddress = async (id: string) => {
+    try {
+      if (!userProfile) return
+
+      // Désactiver toutes les autres adresses par défaut
+      const { error: resetError } = await supabase
+        .from('addresses')
+        .update({ is_default: false })
+        .eq('user_id', userProfile.id)
+
+      if (resetError) {
+        console.error('Erreur de reset:', resetError)
+        toast.error('Erreur lors de la mise à jour')
+        return
+      }
+
+      // Activer la nouvelle adresse par défaut
+      const { error: setError } = await supabase
+        .from('addresses')
+        .update({ is_default: true })
+        .eq('id', id)
+
+      if (setError) {
+        console.error('Erreur de mise à jour:', setError)
+        toast.error('Erreur lors de la mise à jour')
+        return
+      }
+
+      setAddresses(prev => prev.map(addr => ({
+        ...addr,
+        is_default: addr.id === id
+      })))
+      toast.success('Adresse par défaut mise à jour')
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error('Erreur lors de la mise à jour')
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Erreur de déconnexion:', error)
+        toast.error('Erreur lors de la déconnexion')
+        return
+      }
+      router.push('/')
+    } catch (error) {
+      console.error('Erreur:', error)
+      toast.error('Erreur lors de la déconnexion')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    )
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Accès refusé</h2>
+          <p className="text-gray-600">Vous devez être connecté pour accéder à cette page.</p>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
+
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -172,12 +382,24 @@ export default function SettingsPage() {
           transition={{ duration: 0.6 }}
           className="mb-8"
         >
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Paramètres du compte</h1>
-          <p className="text-gray-600">Gérez vos informations personnelles et vos préférences</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">Paramètres du compte</h1>
+              <p className="text-gray-600">Bonjour {userProfile.first_name} {userProfile.last_name}</p>
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleLogout}
+              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            >
+              <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+              Se déconnecter
+            </Button>
+          </div>
         </motion.div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           {/* Sidebar Navigation */}
           <motion.aside
             initial={{ opacity: 0, x: -20 }}
@@ -230,7 +452,7 @@ export default function SettingsPage() {
                     className="p-8"
                   >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Informations personnelles</h2>
-                    
+
                     <form onSubmit={handleSubmit(onProfileSubmit)} className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
@@ -239,25 +461,25 @@ export default function SettingsPage() {
                           </label>
                           <input
                             type="text"
-                            {...register('firstName', { required: 'Le prénom est requis' })}
+                            {...register('first_name', { required: 'Le prénom est requis' })}
                             className="input-field"
                           />
-                          {errors.firstName && (
-                            <p className="text-red-500 text-sm mt-1">{errors.firstName.message}</p>
+                          {errors.first_name && (
+                            <p className="text-red-500 text-sm mt-1">{errors.first_name.message}</p>
                           )}
                         </div>
-                        
+
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Nom
                           </label>
                           <input
                             type="text"
-                            {...register('lastName', { required: 'Le nom est requis' })}
+                            {...register('last_name', { required: 'Le nom est requis' })}
                             className="input-field"
                           />
-                          {errors.lastName && (
-                            <p className="text-red-500 text-sm mt-1">{errors.lastName.message}</p>
+                          {errors.last_name && (
+                            <p className="text-red-500 text-sm mt-1">{errors.last_name.message}</p>
                           )}
                         </div>
                       </div>
@@ -268,14 +490,16 @@ export default function SettingsPage() {
                         </label>
                         <input
                           type="email"
-                          {...register('email', { 
+                          {...register('email', {
                             required: 'L\'email est requis',
                             pattern: {
                               value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
                               message: 'Email invalide'
                             }
                           })}
-                          className="input-field"
+                          className="input-field bg-gray-100"
+                          disabled
+                          title="L'email ne peut pas être modifié"
                         />
                         {errors.email && (
                           <p className="text-red-500 text-sm mt-1">{errors.email.message}</p>
@@ -299,7 +523,7 @@ export default function SettingsPage() {
                         </label>
                         <input
                           type="date"
-                          {...register('dateOfBirth')}
+                          {...register('date_of_birth')}
                           className="input-field"
                         />
                       </div>
@@ -331,55 +555,63 @@ export default function SettingsPage() {
                     </div>
 
                     <div className="space-y-4">
-                      {addresses.map((address) => (
-                        <div
-                          key={address.id}
-                          className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center mb-2">
-                                <h3 className="font-semibold text-gray-900">{address.label}</h3>
-                                {address.isDefault && (
-                                  <span className="ml-2 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
-                                    Par défaut
-                                  </span>
-                                )}
+                      {addresses.length > 0 ? (
+                        addresses.map((address) => (
+                          <div
+                            key={address.id}
+                            className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center mb-2">
+                                  <h3 className="font-semibold text-gray-900">{address.label}</h3>
+                                  {address.is_default && (
+                                    <span className="ml-2 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
+                                      Par défaut
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-gray-600">{address.name}</p>
+                                <p className="text-gray-600">{address.address}</p>
+                                <p className="text-gray-600">{address.postal_code} {address.city}</p>
+                                <p className="text-gray-600">{address.country}</p>
                               </div>
-                              <p className="text-gray-600">{address.name}</p>
-                              <p className="text-gray-600">{address.address}</p>
-                              <p className="text-gray-600">{address.postalCode} {address.city}</p>
-                              <p className="text-gray-600">{address.country}</p>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              {!address.isDefault && (
+                              <div className="flex items-center space-x-2">
+                                {!address.is_default && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleSetDefaultAddress(address.id)}
+                                  >
+                                    <CheckIcon className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => handleSetDefaultAddress(address.id)}
+                                  onClick={() => setEditingAddress(address.id)}
                                 >
-                                  <CheckIcon className="h-4 w-4" />
+                                  <PencilIcon className="h-4 w-4" />
                                 </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingAddress(address.id)}
-                              >
-                                <PencilIcon className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteAddress(address.id)}
-                                className="text-red-500 hover:text-red-600"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteAddress(address.id)}
+                                  className="text-red-500 hover:text-red-600"
+                                >
+                                  <TrashIcon className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-12">
+                          <MapPinIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 text-lg">Aucune adresse</p>
+                          <p className="text-gray-400 text-sm mt-1">Ajoutez une adresse de livraison</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -394,39 +626,50 @@ export default function SettingsPage() {
                     className="p-8"
                   >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Historique des commandes</h2>
-                    
+
                     <div className="space-y-4">
-                      {mockOrders.map((order) => (
-                        <div
-                          key={order.id}
-                          className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <div className="flex items-center space-x-4 mb-2">
-                                <h3 className="font-semibold text-gray-900">Commande {order.id}</h3>
-                                <span className={`px-2 py-1 text-xs rounded-full ${getOrderStatusColor(order.status)}`}>
-                                  {getOrderStatusText(order.status)}
-                                </span>
+                      {orders.length > 0 ? (
+                        orders.map((order) => {
+                          const itemCount = order.order_items?.length || 0
+                          return (
+                            <div
+                              key={order.id}
+                              className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="flex items-center space-x-4 mb-2">
+                                    <h3 className="font-semibold text-gray-900">Commande {order.order_number}</h3>
+                                    <span className={`px-2 py-1 text-xs rounded-full ${getOrderStatusColor(order.status)}`}>
+                                      {getOrderStatusText(order.status)}
+                                    </span>
+                                  </div>
+                                  <p className="text-gray-600">
+                                    {new Date(order.created_at).toLocaleDateString('fr-FR', {
+                                      year: 'numeric',
+                                      month: 'long',
+                                      day: 'numeric'
+                                    })}
+                                  </p>
+                                  <p className="text-gray-600">{itemCount} article{itemCount > 1 ? 's' : ''}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-xl font-bold text-gray-900">{formatPrice(parseFloat(order.total_amount))}</p>
+                                  <Button variant="secondary" size="sm" className="mt-2">
+                                    Voir détails
+                                  </Button>
+                                </div>
                               </div>
-                              <p className="text-gray-600">
-                                {new Date(order.date).toLocaleDateString('fr-FR', {
-                                  year: 'numeric',
-                                  month: 'long', 
-                                  day: 'numeric'
-                                })}
-                              </p>
-                              <p className="text-gray-600">{order.items} article{order.items > 1 ? 's' : ''}</p>
                             </div>
-                            <div className="text-right">
-                              <p className="text-xl font-bold text-gray-900">{order.total}€</p>
-                              <Button variant="secondary" size="sm" className="mt-2">
-                                Voir détails
-                              </Button>
-                            </div>
-                          </div>
+                          )
+                        })
+                      ) : (
+                        <div className="text-center py-12">
+                          <ShoppingBagIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <p className="text-gray-500 text-lg">Aucune commande</p>
+                          <p className="text-gray-400 text-sm mt-1">Vos commandes apparaîtront ici</p>
                         </div>
-                      ))}
+                      )}
                     </div>
                   </motion.div>
                 )}
@@ -441,34 +684,11 @@ export default function SettingsPage() {
                     className="p-8"
                   >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Mes favoris</h2>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {mockFavorites.map((item) => (
-                        <div
-                          key={item.id}
-                          className="border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow"
-                        >
-                          <div className="flex items-center space-x-4">
-                            <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                              <Image
-                                src={item.image}
-                                alt={item.name}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">{item.name}</h3>
-                              <p className="text-gray-600">{item.brand}</p>
-                              <p className="text-sm text-gray-500">{item.color}</p>
-                              <p className="text-lg font-bold text-gray-900 mt-1">{item.price}€</p>
-                            </div>
-                            <Button variant="secondary" size="sm">
-                              Ajouter au panier
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
+
+                    <div className="text-center py-12">
+                      <HeartIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500 text-lg">Aucun favori</p>
+                      <p className="text-gray-400 text-sm mt-1">Les produits que vous aimez apparaîtront ici</p>
                     </div>
                   </motion.div>
                 )}
@@ -483,7 +703,7 @@ export default function SettingsPage() {
                     className="p-8"
                   >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Préférences de notifications</h2>
-                    
+
                     <div className="space-y-6">
                       {[
                         { id: 'email_promo', label: 'Promotions et offres spéciales', description: 'Recevoir les dernières offres par email' },
@@ -516,7 +736,7 @@ export default function SettingsPage() {
                     className="p-8"
                   >
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Sécurité du compte</h2>
-                    
+
                     <div className="space-y-6">
                       <div className="border border-gray-200 rounded-xl p-6">
                         <h3 className="font-semibold text-gray-900 mb-2">Changer le mot de passe</h3>
