@@ -21,11 +21,12 @@ export interface ProductWithVariants extends Product {
   }
 }
 
-export async function getProducts(): Promise<ProductWithVariants[]> {
+export async function getProducts(filters?: { gender?: string }): Promise<ProductWithVariants[]> {
   try {
     console.log('🔄 Début du chargement des produits depuis Supabase...')
+    console.log('Filtres appliqués:', filters)
 
-    const response = await supabase
+    let query = supabase
       .from('products')
       .select(`
         *,
@@ -34,7 +35,13 @@ export async function getProducts(): Promise<ProductWithVariants[]> {
         categories(*)
       `)
       .eq('is_active', true)
-      .order('created_at', { ascending: false })
+
+    // Appliquer le filtre par genre si spécifié
+    if (filters?.gender && filters.gender !== 'all') {
+      query = query.eq('gender', filters.gender)
+    }
+
+    const response = await query.order('created_at', { ascending: false })
 
     console.log('📡 Réponse Supabase reçue:', response)
 
@@ -113,6 +120,8 @@ export async function getProductsByCategory(categoryId: string): Promise<Product
 
 export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
   try {
+    console.log('🔍 Recherche produit par slug:', slug)
+
     // Extract SKU from slug (format: product-name-SKU)
     // Get all possible SKUs from database to match against
     const allSkusResponse = await supabase
@@ -142,7 +151,17 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
       }
     }
 
-    console.log('Debug: slug =', slug, ', extracted SKU =', sku, ', available SKUs =', allSkus.slice(0, 5))
+    console.log('🔍 Debug slug:', {
+      slug,
+      extractedSku: sku,
+      totalSkusAvailable: allSkus.length,
+      sampleSkus: allSkus.slice(0, 10)
+    })
+
+    if (!sku) {
+      console.log('❌ Aucun SKU trouvé pour le slug:', slug)
+      return null
+    }
 
     const response = await supabase
       .from('product_variants')
@@ -164,9 +183,13 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
     }
 
     const variants = response.data || []
-    if (!variants || variants.length === 0 || !variants[0]?.product) return null
+    if (!variants || variants.length === 0 || !variants[0]?.product) {
+      console.log('❌ Aucun produit trouvé pour le SKU:', sku)
+      return null
+    }
 
     const variant = variants[0]
+    console.log('✅ Produit trouvé:', variant.product.name)
 
     // Get all variants for this product
     const variantsResponse = await supabase
@@ -186,9 +209,9 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
       ...variant.product,
       variants: allVariants
     } as ProductWithVariants
-    
+
   } catch (error) {
-    console.error('Erreur lors de la récupération du produit:', error)
+    console.error('💥 Erreur lors de la récupération du produit:', error)
     return null
   }
 }

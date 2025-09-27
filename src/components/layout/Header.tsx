@@ -13,7 +13,8 @@ import {
   Cog6ToothIcon,
   ArrowRightOnRectangleIcon,
   HeartIcon,
-  ShoppingCartIcon
+  ShoppingCartIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import { useCartStore } from '@/stores/cartStore'
 import { Button } from '@/components/ui/Button'
@@ -128,31 +129,33 @@ const Header = () => {
   }
 
   const navigationItems = [
-    { name: 'Sneakers', href: '/sneakers', gradient: 'from-orange-500 to-red-500' }
+    { name: 'Accueil', href: '/' },
+    { name: 'Hommes', href: '/sneakers?gender=homme' },
+    { name: 'Femmes', href: '/sneakers?gender=femme' },
+    { name: 'Enfants', href: '/sneakers?gender=enfant' }
   ]
 
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/sneakers?search=${encodeURIComponent(searchQuery)}`)
+      setSearchQuery('')
+      setSearchOpen(false)
+    }
+  }
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100">
+    <header className="sticky top-0 z-50 bg-white shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 md:h-20">
+        <div className="flex items-center justify-between h-16">
 
-          {/* Mobile Menu Button */}
-          <div className="flex items-center md:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2"
-            >
-              <Bars3Icon className="h-6 w-6" />
-            </Button>
-          </div>
-
-          {/* Logo */}
+          {/* Logo - Gauche */}
           <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center space-x-4 group">
-              <div className="relative w-12 h-12 md:w-16 md:h-16 transition-transform group-hover:scale-110">
+            <Link href="/" className="flex items-center space-x-3 group">
+              <div className="relative w-10 h-10 transition-transform group-hover:scale-110">
                 <Image
                   src="https://i.imgur.com/aMPFKNw.png"
                   alt="SneakHouse"
@@ -161,43 +164,73 @@ const Header = () => {
                   priority
                 />
               </div>
-              <span className="font-intro-rust text-lg md:text-2xl font-bold text-gradient-orange hidden sm:block">
+              <span className="text-xl font-bold bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent hidden sm:block">
                 SneakHouse
               </span>
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          {/* Navigation - Centre */}
+          <nav className="hidden md:flex items-center space-x-1">
             {navigationItems.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="relative group px-3 py-2 rounded-lg transition-all duration-300"
+                className="px-4 py-2 text-gray-700 hover:text-orange-500 font-medium transition-colors duration-200"
               >
-                <span className="text-gray-700 group-hover:text-white transition-colors duration-300 relative z-10">
-                  {item.name}
-                </span>
-                <div className={`absolute inset-0 bg-gradient-to-r ${item.gradient} opacity-0 group-hover:opacity-100 rounded-lg transition-all duration-300 transform scale-95 group-hover:scale-100`} />
+                {item.name}
               </Link>
             ))}
           </nav>
 
-          {/* Action Icons */}
-          <div className="flex items-center space-x-2 md:space-x-4">
+          {/* Actions - Droite */}
+          <div className="flex items-center space-x-1">
 
-            {/* Account Menu */}
+            {/* Recherche */}
+            <div className="relative">
+              <button
+                onClick={() => setSearchOpen(!searchOpen)}
+                className="p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-all duration-200"
+              >
+                <MagnifyingGlassIcon className="h-5 w-5" />
+              </button>
+
+              <AnimatePresence>
+                {searchOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 200 }}
+                    exit={{ opacity: 0, width: 0 }}
+                    className="absolute right-0 top-full mt-2"
+                  >
+                    <form onSubmit={handleSearch} className="relative">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        placeholder="Rechercher..."
+                        className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        className="absolute right-2 top-1/2 -translate-y-1/2"
+                      >
+                        <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+                      </button>
+                    </form>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Login/Account */}
             <div className="relative">
               <button
                 onClick={() => setIsAccountMenuOpen(!isAccountMenuOpen)}
-                className="flex items-center p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+                className="p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-all duration-200"
               >
-                <UserIcon className="h-5 w-5 md:h-6 md:w-6 group-hover:scale-110 transition-transform" />
-                {userProfile && (
-                  <span className="ml-2 text-sm font-medium hidden md:block">
-                    {userProfile.first_name}
-                  </span>
-                )}
+                <UserIcon className="h-5 w-5" />
               </button>
 
               <AnimatePresence>
@@ -291,12 +324,12 @@ const Header = () => {
               </AnimatePresence>
             </div>
 
-            {/* Cart */}
+            {/* Panier */}
             <button
               onClick={openCart}
-              className="relative p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-orange-50 transition-all duration-200 group"
+              className="relative p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-all duration-200"
             >
-              <ShoppingBagIcon className="h-5 w-5 md:h-6 md:w-6 group-hover:scale-110 transition-transform" />
+              <ShoppingBagIcon className="h-5 w-5" />
               {mounted && cartItemsCount > 0 && (
                 <motion.span
                   initial={{ scale: 0 }}
@@ -307,6 +340,16 @@ const Header = () => {
                 </motion.span>
               )}
             </button>
+
+            {/* Menu mobile */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="p-2 rounded-lg text-gray-700 hover:text-orange-500 hover:bg-gray-50 transition-all duration-200"
+              >
+                <Bars3Icon className="h-5 w-5" />
+              </button>
+            </div>
           </div>
         </div>
       </div>

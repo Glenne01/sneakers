@@ -21,7 +21,11 @@
       "Bash(git ls-tree:*)",
       "Bash(grep:*)",
       "Bash(curl:*)",
-      "Bash(git restore:*)"
+      "Bash(git restore:*)",
+      "Bash(dir:*)",
+      "Bash(node:*)",
+      "Bash(python:*)",
+      "WebFetch(domain:localhost)"
     ]
   },
   "enableAllProjectMcpServers": true,

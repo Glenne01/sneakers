@@ -62,6 +62,18 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.pixabay.com',
         port: '',
         pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'images.footlocker.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'image.goat.com',
+        port: '',
+        pathname: '/**',
       }
     ],
   },

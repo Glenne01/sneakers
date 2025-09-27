@@ -148,6 +148,16 @@
   .backdrop-blur-soft {
     backdrop-filter: blur(8px);
   }
+
+  /* Hide scrollbar */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* Intro Rust font (custom font for brand elements) */

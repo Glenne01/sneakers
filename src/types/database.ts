@@ -261,18 +261,241 @@ export interface Database {
           created_at: string | null
         }
       }
+      stock_movements: {
+        Row: {
+          id: string
+          variant_id: string | null
+          size_id: string | null
+          movement_type: 'in' | 'out' | 'adjustment' | 'reservation' | 'release'
+          quantity_change: number
+          quantity_before: number
+          quantity_after: number
+          reference_type: string | null
+          reference_id: string | null
+          reason: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          variant_id?: string | null
+          size_id?: string | null
+          movement_type: 'in' | 'out' | 'adjustment' | 'reservation' | 'release'
+          quantity_change: number
+          quantity_before: number
+          quantity_after: number
+          reference_type?: string | null
+          reference_id?: string | null
+          reason?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          variant_id?: string | null
+          size_id?: string | null
+          movement_type?: 'in' | 'out' | 'adjustment' | 'reservation' | 'release'
+          quantity_change?: number
+          quantity_before?: number
+          quantity_after?: number
+          reference_type?: string | null
+          reference_id?: string | null
+          reason?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+      }
+      stock_alerts: {
+        Row: {
+          id: string
+          variant_id: string | null
+          size_id: string | null
+          alert_type: 'low_stock' | 'out_of_stock' | 'overstocked'
+          threshold_value: number
+          current_stock: number
+          status: 'active' | 'resolved' | 'ignored'
+          created_at: string
+          resolved_at: string | null
+          resolved_by: string | null
+        }
+        Insert: {
+          id?: string
+          variant_id?: string | null
+          size_id?: string | null
+          alert_type: 'low_stock' | 'out_of_stock' | 'overstocked'
+          threshold_value: number
+          current_stock: number
+          status?: 'active' | 'resolved' | 'ignored'
+          created_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+        Update: {
+          id?: string
+          variant_id?: string | null
+          size_id?: string | null
+          alert_type?: 'low_stock' | 'out_of_stock' | 'overstocked'
+          threshold_value?: number
+          current_stock?: number
+          status?: 'active' | 'resolved' | 'ignored'
+          created_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+        }
+      }
+      stock_reservations: {
+        Row: {
+          id: string
+          variant_id: string
+          size_id: string
+          quantity: number
+          reservation_type: 'cart' | 'checkout' | 'manual'
+          reference_id: string | null
+          user_id: string | null
+          expires_at: string
+          status: 'active' | 'fulfilled' | 'expired' | 'cancelled'
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          variant_id: string
+          size_id: string
+          quantity: number
+          reservation_type: 'cart' | 'checkout' | 'manual'
+          reference_id?: string | null
+          user_id?: string | null
+          expires_at: string
+          status?: 'active' | 'fulfilled' | 'expired' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          variant_id?: string
+          size_id?: string
+          quantity?: number
+          reservation_type?: 'cart' | 'checkout' | 'manual'
+          reference_id?: string | null
+          user_id?: string | null
+          expires_at?: string
+          status?: 'active' | 'fulfilled' | 'expired' | 'cancelled'
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      stock_thresholds: {
+        Row: {
+          id: string
+          category_id: string | null
+          brand_id: string | null
+          low_stock_threshold: number
+          overstock_threshold: number
+          is_default: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          category_id?: string | null
+          brand_id?: string | null
+          low_stock_threshold?: number
+          overstock_threshold?: number
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          category_id?: string | null
+          brand_id?: string | null
+          low_stock_threshold?: number
+          overstock_threshold?: number
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+      }
     }
     Views: {
-      [_ in never]: never
+      stock_available: {
+        Row: {
+          id: string
+          variant_id: string | null
+          size_id: string | null
+          physical_stock: number
+          reserved_quantity: number
+          available_quantity: number
+          updated_at: string
+        }
+      }
+      stock_overview: {
+        Row: {
+          variant_id: string
+          sku: string
+          color: string | null
+          product_name: string
+          brand_name: string | null
+          size_display: string
+          physical_stock: number
+          reserved_quantity: number
+          available_quantity: number
+          active_alerts: number
+          last_movement_date: string | null
+          updated_at: string
+        }
+      }
     }
     Functions: {
-      [_ in never]: never
+      reserve_stock: {
+        Args: {
+          p_variant_id: string
+          p_size_id: string
+          p_quantity: number
+          p_reservation_type: string
+          p_reference_id?: string | null
+          p_user_id?: string | null
+          p_expires_minutes?: number
+        }
+        Returns: any
+      }
+      release_reservation: {
+        Args: {
+          p_reservation_id: string
+        }
+        Returns: any
+      }
+      fulfill_reservation: {
+        Args: {
+          p_reservation_id: string
+        }
+        Returns: any
+      }
+      adjust_stock: {
+        Args: {
+          p_variant_id: string
+          p_size_id: string
+          p_new_quantity: number
+          p_reason?: string
+          p_user_id?: string | null
+        }
+        Returns: any
+      }
+      cleanup_expired_reservations: {
+        Args: {}
+        Returns: void
+      }
     }
     Enums: {
       gender_type: 'homme' | 'femme' | 'enfant' | 'unisexe'
       order_status: 'pending' | 'confirmed' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
       payment_status: 'pending' | 'completed' | 'failed' | 'refunded'
       user_role: 'admin' | 'vendor' | 'customer'
+      movement_type: 'in' | 'out' | 'adjustment' | 'reservation' | 'release'
+      alert_type: 'low_stock' | 'out_of_stock' | 'overstocked'
+      alert_status: 'active' | 'resolved' | 'ignored'
+      reservation_status: 'active' | 'fulfilled' | 'expired' | 'cancelled'
+      reservation_type: 'cart' | 'checkout' | 'manual'
     }
   }
 }
@@ -306,4 +529,52 @@ export type CartItem = {
 export type Order = Database['public']['Tables']['orders']['Row'] & {
   items?: Database['public']['Tables']['order_items']['Row'][]
   user?: User
+}
+
+// New stock management types
+export type StockMovement = Database['public']['Tables']['stock_movements']['Row'] & {
+  product_variant?: ProductVariant
+  size?: Database['public']['Tables']['sizes']['Row']
+  user?: User
+}
+
+export type StockAlert = Database['public']['Tables']['stock_alerts']['Row'] & {
+  product_variant?: ProductVariant & {
+    product?: Product
+  }
+  size?: Database['public']['Tables']['sizes']['Row']
+  resolved_by_user?: User
+}
+
+export type StockReservation = Database['public']['Tables']['stock_reservations']['Row'] & {
+  product_variant?: ProductVariant
+  size?: Database['public']['Tables']['sizes']['Row']
+  user?: User
+}
+
+export type StockThreshold = Database['public']['Tables']['stock_thresholds']['Row'] & {
+  category?: Database['public']['Tables']['categories']['Row']
+  brand?: Database['public']['Tables']['brands']['Row']
+}
+
+export type StockAvailable = Database['public']['Views']['stock_available']['Row']
+
+export type StockOverview = Database['public']['Views']['stock_overview']['Row']
+
+// API response types
+export type StockReservationResponse = {
+  success: boolean
+  reservation_id?: string
+  expires_at?: string
+  error?: string
+  available?: number
+  requested?: number
+}
+
+export type StockAdjustmentResponse = {
+  success: boolean
+  previous_quantity?: number
+  new_quantity?: number
+  change?: number
+  error?: string
 }

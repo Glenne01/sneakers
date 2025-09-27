@@ -35,11 +35,23 @@ const ProductCard = ({ product, variant, className = '', showQuickAdd = true }: 
     await toggleFavorite(product.id)
   }
 
+  // Helper function to create clean slug
+  const createSlug = (name: string, sku: string) => {
+    const cleanName = name
+      ?.toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '') // Remove special characters except spaces and hyphens
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-') // Remove multiple consecutive hyphens
+      .trim() || 'product'
+
+    return `${cleanName}-${sku}`.toLowerCase()
+  }
+
   const handleQuickView = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     // Rediriger vers la page produit
-    const productSlug = `${product.name?.toLowerCase().replace(/\s+/g, '-')}-${variant.sku}`.toLowerCase()
+    const productSlug = createSlug(product.name, variant.sku)
     router.push(`/produit/${productSlug}`)
   }
 
@@ -48,12 +60,12 @@ const ProductCard = ({ product, variant, className = '', showQuickAdd = true }: 
     e.stopPropagation()
 
     // Rediriger vers la page produit pour sélectionner la taille
-    const productSlug = `${product.name?.toLowerCase().replace(/\s+/g, '-')}-${variant.sku}`.toLowerCase()
+    const productSlug = createSlug(product.name, variant.sku)
     router.push(`/produit/${productSlug}`)
   }
 
   // Create product URL slug
-  const productSlug = `${product.name?.toLowerCase().replace(/\s+/g, '-')}-${variant.sku}`.toLowerCase()
+  const productSlug = createSlug(product.name, variant.sku)
 
   return (
     <motion.div
