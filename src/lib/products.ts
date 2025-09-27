@@ -120,7 +120,9 @@ export async function getProductsByCategory(categoryId: string): Promise<Product
 
 export async function getProductBySlug(slug: string): Promise<ProductWithVariants | null> {
   try {
-    console.log('🔍 Recherche produit par slug:', slug)
+    // Decode URL first
+    const decodedSlug = decodeURIComponent(slug)
+    console.log('🔍 Recherche produit par slug:', slug, '-> décodé:', decodedSlug)
 
     // Extract SKU from slug (format: product-name-SKU)
     // Get all possible SKUs from database to match against
@@ -141,7 +143,7 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
 
     // Check each possible SKU to see if the slug ends with it (case insensitive)
     for (const possibleSku of allSkus) {
-      const slugLower = slug.toLowerCase()
+      const slugLower = decodedSlug.toLowerCase()
       const skuLower = possibleSku.toLowerCase()
 
       // Check if slug ends with this SKU (with a dash before it)
@@ -153,6 +155,7 @@ export async function getProductBySlug(slug: string): Promise<ProductWithVariant
 
     console.log('🔍 Debug slug:', {
       slug,
+      decodedSlug,
       extractedSku: sku,
       totalSkusAvailable: allSkus.length,
       sampleSkus: allSkus.slice(0, 10)

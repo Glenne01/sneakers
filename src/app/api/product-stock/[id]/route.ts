@@ -10,7 +10,24 @@ export async function GET(
     const productId = (await params).id
     const supabase = createClientComponentClient<Database>()
 
-    // Récupérer toutes les tailles avec leur stock pour ce produit
+    // Première étape : récupérer toutes les variantes du produit
+    const { data: variants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select('id')
+      .eq('product_id', productId)
+
+    if (variantsError) {
+      console.error('Erreur lors de la récupération des variantes:', variantsError)
+      return NextResponse.json({ error: 'Erreur lors de la récupération des variantes' }, { status: 500 })
+    }
+
+    if (!variants || variants.length === 0) {
+      return NextResponse.json([])
+    }
+
+    const variantIds = variants.map(v => v.id)
+
+    // Deuxième étape : récupérer le stock pour ces variantes
     const { data: stockData, error } = await supabase
       .from('product_stock')
       .select(`
@@ -23,13 +40,9 @@ export async function GET(
           size_display,
           gender,
           sort_order
-        ),
-        product_variants!inner (
-          id,
-          product_id
         )
       `)
-      .eq('product_variants.product_id', productId)
+      .in('variant_id', variantIds)
       .order('sizes(sort_order)')
 
     if (error) {

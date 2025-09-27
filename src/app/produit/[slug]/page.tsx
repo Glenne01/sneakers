@@ -41,14 +41,22 @@ export default function ProductDetailPage() {
     const loadProduct = async () => {
       try {
         const productData = await getProductBySlug(slug)
+        console.log('🎯 Produit récupéré:', productData)
         setProduct(productData)
-        
+
         if (productData) {
+          console.log('✅ ProductData existe, ID:', productData.id)
           // Charger les tailles et le stock depuis Supabase
+          console.log('🔄 Chargement du stock pour le produit ID:', productData.id)
           const response = await fetch('/api/product-stock/' + productData.id)
+          console.log('📡 Réponse API stock:', response.status, response.statusText)
+
           if (response.ok) {
             const stockData = await response.json()
+            console.log('✅ Données de stock reçues:', stockData)
             setSizes(stockData)
+          } else {
+            console.error('❌ Erreur API stock:', response.status, await response.text())
           }
         }
       } catch (error) {
@@ -250,6 +258,7 @@ export default function ProductDetailPage() {
                     Guide des tailles
                   </Link>
                 </div>
+                {console.log('🔍 État actuel des tailles:', sizes, 'Longueur:', sizes.length)}
                 <div className="grid grid-cols-3 gap-3">
                   {sizes.map((size) => (
                     <button
