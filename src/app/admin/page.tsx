@@ -26,17 +26,34 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [authLoading, setAuthLoading] = useState(true)
 
-  // Version simplifiée sans authentification pour débugger
-  // const { user, loading: authLoading } = useAuth('admin')
+  useEffect(() => {
+    // Vérification d'auth simple côté client uniquement
+    if (typeof window !== 'undefined') {
+      const userRole = localStorage.getItem('userRole')
+      if (userRole === 'admin') {
+        setIsAuthenticated(true)
+      } else {
+        window.location.href = '/admin/login'
+        return
+      }
+    }
+    setAuthLoading(false)
+  }, [])
 
-  // if (authLoading) {
-  //   return (
-  //     <div className="flex items-center justify-center h-screen">
-  //       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-  //     </div>
-  //   )
-  // }
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null // Redirection en cours
+  }
 
   useEffect(() => {
     // Simuler le chargement des données
