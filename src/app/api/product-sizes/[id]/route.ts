@@ -10,16 +10,10 @@ export async function GET(
     const productId = (await params).id
     console.log('🔍 API product-sizes appelée pour ID:', productId)
 
-    // Vérifier les variables d'environnement
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-      console.error('❌ Variables Supabase manquantes')
-      return NextResponse.json({ error: 'Configuration Supabase manquante' }, { status: 500 })
-    }
-
-    // Utiliser le client serveur pour Vercel
+    // Utiliser les credentials directement (temporaire pour contourner le problème Vercel)
     const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      'https://pnkomglhvrwaddshwjff.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBua29tZ2xodnJ3YWRkc2h3amZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3OTMwMDEsImV4cCI6MjA3NDM2OTAwMX0.IakWiHM3bIjAm03DDv9GvF7PIGgpmMoU2JveB0DMbr4'
     )
 
     // Première étape : récupérer toutes les variantes du produit
