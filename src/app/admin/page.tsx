@@ -1,304 +1,213 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import Link from 'next/link'
-import { 
-  ShoppingBagIcon, 
-  UsersIcon, 
-  CubeIcon, 
-  CurrencyEuroIcon,
-  ArrowTrendingUpIcon,
-  ClockIcon
-} from '@heroicons/react/24/outline'
 import AdminLayout from '@/components/admin/AdminLayout'
-import { useAdminStore, loginAsAdmin, loginAsVendor } from '@/stores/adminStore'
-import { usePermissions } from '@/hooks/usePermissions'
-import { Button } from '@/components/ui/Button'
-import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import {
+  CubeIcon,
+  ShoppingBagIcon,
+  UsersIcon,
+  BanknotesIcon,
+  ArrowUpIcon,
+  ArrowDownIcon
+} from '@heroicons/react/24/outline'
 
-interface StatCard {
-  title: string
-  value: string | number
-  change: string
-  trend: 'up' | 'down' | 'neutral'
-  icon: React.ElementType
-  color: string
+interface DashboardStats {
+  totalProducts: number
+  totalOrders: number
+  totalUsers: number
+  totalRevenue: number
+  productGrowth: number
+  orderGrowth: number
+  userGrowth: number
+  revenueGrowth: number
 }
 
 export default function AdminDashboard() {
-  const { user, isAuthenticated } = useAdminStore()
-  const { canAccess } = usePermissions(user?.role || 'customer')
-  const [stats, setStats] = useState<StatCard[]>([])
+  const { user, loading: authLoading } = useAuth('admin')
+  const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    loadRealStats()
-  }, [])
-
-  const loadRealStats = async () => {
-    try {
-      // Charger les vraies statistiques depuis la base de données
-      const [ordersResult, usersResult, productsResult] = await Promise.all([
-        supabase.from('orders').select('id, total_amount'),
-        supabase.from('users').select('id').eq('role', 'customer'),
-        supabase.from('products').select('id')
-      ])
-
-      const ordersCount = ordersResult.data?.length || 0
-      const totalRevenue = ordersResult.data?.reduce((sum, order) => sum + (parseFloat(order.total_amount) || 0), 0) || 0
-      const usersCount = usersResult.data?.length || 0
-      const productsCount = productsResult.data?.length || 0
-
-      const realStats: StatCard[] = [
-        {
-          title: 'Commandes totales',
-          value: ordersCount,
-          change: '0%',
-          trend: 'neutral',
-          icon: ShoppingBagIcon,
-          color: 'bg-blue-500'
-        },
-        {
-          title: 'Revenus',
-          value: `€${totalRevenue.toFixed(2)}`,
-          change: '0%',
-          trend: 'neutral',
-          icon: CurrencyEuroIcon,
-          color: 'bg-green-500'
-        },
-        {
-          title: 'Utilisateurs',
-          value: usersCount,
-          change: '0%',
-          trend: 'neutral',
-          icon: UsersIcon,
-          color: 'bg-purple-500'
-        },
-      {
-        title: 'Produits',
-        value: productsCount,
-        change: '0%',
-        trend: 'neutral',
-        icon: CubeIcon,
-        color: 'bg-orange-500'
-      }
-    ]
-
-      // Filtrer les stats selon les permissions
-      const filteredStats = realStats.filter(stat => {
-        if (stat.title.includes('Commandes') && !canAccess('orders')) return false
-        if (stat.title.includes('Utilisateurs') && !canAccess('users')) return false
-        if (stat.title.includes('Produits') && !canAccess('products')) return false
-        return true
-      })
-
-      setStats(filteredStats)
-    } catch (error) {
-      console.error('Erreur lors du chargement des statistiques:', error)
-      // Fallback avec des valeurs par défaut
-      const fallbackStats = [
-        { title: 'Commandes totales', value: 0, change: '0%', trend: 'neutral', icon: ShoppingBagIcon, color: 'bg-blue-500' },
-        { title: 'Revenus', value: '€0', change: '0%', trend: 'neutral', icon: CurrencyEuroIcon, color: 'bg-green-500' },
-        { title: 'Utilisateurs', value: 0, change: '0%', trend: 'neutral', icon: UsersIcon, color: 'bg-purple-500' },
-        { title: 'Produits', value: 0, change: '0%', trend: 'neutral', icon: CubeIcon, color: 'bg-orange-500' }
-      ]
-      setStats(fallbackStats)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Écran de connexion pour développement
-  if (!isAuthenticated || !user) {
+  if (authLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white p-8 rounded-2xl shadow-soft max-w-md w-full">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Admin Panel</h1>
-            <p className="text-gray-600">Connectez-vous pour accéder au panel admin</p>
-          </div>
-
-          <div className="space-y-4">
-            <Button 
-              onClick={loginAsAdmin}
-              className="w-full"
-            >
-              Se connecter comme Admin
-            </Button>
-            <Button 
-              onClick={loginAsVendor}
-              variant="secondary"
-              className="w-full"
-            >
-              Se connecter comme Vendeur
-            </Button>
-          </div>
-
-          <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500">
-              Connexion temporaire pour développement
-            </p>
-          </div>
-        </div>
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
       </div>
     )
   }
 
-  const recentOrders: any[] = []
+  useEffect(() => {
+    // Simuler le chargement des données
+    setTimeout(() => {
+      setStats({
+        totalProducts: 100,
+        totalOrders: 245,
+        totalUsers: 1340,
+        totalRevenue: 45230,
+        productGrowth: 12,
+        orderGrowth: -5,
+        userGrowth: 18,
+        revenueGrowth: 8
+      })
+      setLoading(false)
+    }, 1000)
+  }, [])
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      delivered: 'bg-green-100 text-green-800',
-      processing: 'bg-yellow-100 text-yellow-800',
-      shipped: 'bg-blue-100 text-blue-800'
-    }
-    return colors[status] || 'bg-gray-100 text-gray-800'
+  const StatCard = ({
+    title,
+    value,
+    icon: Icon,
+    growth,
+    prefix = '',
+    suffix = ''
+  }: {
+    title: string
+    value: number | string
+    icon: React.ComponentType<{ className?: string }>
+    growth: number
+    prefix?: string
+    suffix?: string
+  }) => (
+    <div className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center">
+        <div className="flex-shrink-0">
+          <Icon className="h-8 w-8 text-orange-500" />
+        </div>
+        <div className="ml-5 w-0 flex-1">
+          <dl>
+            <dt className="text-sm font-medium text-gray-500 truncate">
+              {title}
+            </dt>
+            <dd className="flex items-baseline">
+              <div className="text-2xl font-semibold text-gray-900">
+                {prefix}{typeof value === 'number' ? value.toLocaleString() : value}{suffix}
+              </div>
+              <div className={`ml-2 flex items-baseline text-sm font-semibold ${
+                growth >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {growth >= 0 ? (
+                  <ArrowUpIcon className="self-center flex-shrink-0 h-4 w-4" />
+                ) : (
+                  <ArrowDownIcon className="self-center flex-shrink-0 h-4 w-4" />
+                )}
+                <span className="ml-1">
+                  {Math.abs(growth)}%
+                </span>
+              </div>
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (loading) {
+    return (
+      <AdminLayout userRole="admin">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+        </div>
+      </AdminLayout>
+    )
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout userRole="admin">
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              Dashboard
-            </h1>
-            <p className="text-gray-600 mt-1">
-              Bonjour {user.firstName}, voici un aperçu de votre {user.role === 'admin' ? 'boutique' : 'activité'}
-            </p>
-          </div>
-          <div className="text-sm text-gray-500">
-            Dernière mise à jour: il y a 5 minutes
+        {/* En-tête */}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Vue d'ensemble de votre plateforme e-commerce
+          </p>
+        </div>
+
+        {/* Statistiques principales */}
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            title="Total Produits"
+            value={stats?.totalProducts || 0}
+            icon={CubeIcon}
+            growth={stats?.productGrowth || 0}
+          />
+          <StatCard
+            title="Commandes"
+            value={stats?.totalOrders || 0}
+            icon={ShoppingBagIcon}
+            growth={stats?.orderGrowth || 0}
+          />
+          <StatCard
+            title="Utilisateurs"
+            value={stats?.totalUsers || 0}
+            icon={UsersIcon}
+            growth={stats?.userGrowth || 0}
+          />
+          <StatCard
+            title="Chiffre d'Affaires"
+            value={stats?.totalRevenue || 0}
+            icon={BanknotesIcon}
+            growth={stats?.revenueGrowth || 0}
+            suffix="€"
+          />
+        </div>
+
+        {/* Actions rapides */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">
+              Actions Rapides
+            </h3>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <button className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700">
+                Ajouter un produit
+              </button>
+              <button className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Voir les commandes
+              </button>
+              <button className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Gérer les stocks
+              </button>
+              <button className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                Voir les rapports
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-white rounded-xl p-6 shadow-soft"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.title}</p>
-                  <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-                  <div className="flex items-center mt-2">
-                    <ArrowTrendingUpIcon className={`h-4 w-4 mr-1 ${
-                      stat.trend === 'up' ? 'text-green-500' : 'text-red-500'
-                    }`} />
-                    <span className={`text-sm font-medium ${
-                      stat.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {stat.change}
-                    </span>
-                    <span className="text-sm text-gray-500 ml-1">vs mois dernier</span>
-                  </div>
-                </div>
-                <div className={`p-3 rounded-xl ${stat.color}`}>
-                  <stat.icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Orders */}
-          {canAccess('orders') && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-white rounded-xl shadow-soft"
-            >
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Commandes récentes</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {recentOrders.length > 0 ? (
-                    recentOrders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="flex-shrink-0">
-                            <div className="w-2 h-2 bg-orange-400 rounded-full"></div>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{order.id}</p>
-                            <p className="text-sm text-gray-500">{order.customer}</p>
-                          </div>
+        {/* Activité récente */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-4 py-5 sm:p-6">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+              Activité Récente
+            </h3>
+            <div className="flow-root">
+              <ul className="-mb-8">
+                {[
+                  { action: 'Nouvelle commande #1245', time: 'Il y a 2 minutes', type: 'order' },
+                  { action: 'Produit ajouté par Vendeur A', time: 'Il y a 15 minutes', type: 'product' },
+                  { action: 'Utilisateur créé', time: 'Il y a 1 heure', type: 'user' },
+                  { action: 'Stock faible: Air Jordan 1', time: 'Il y a 2 heures', type: 'alert' }
+                ].map((item, index) => (
+                  <li key={index}>
+                    <div className="relative pb-8">
+                      {index < 3 && (
+                        <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" />
+                      )}
+                      <div className="relative flex space-x-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-orange-100">
+                          <div className="h-2 w-2 rounded-full bg-orange-600" />
                         </div>
-                        <div className="flex items-center space-x-4">
-                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(order.status)}`}>
-                            {order.status}
-                          </span>
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">{order.amount}</p>
-                            <div className="flex items-center text-xs text-gray-500">
-                              <ClockIcon className="h-3 w-3 mr-1" />
-                              {order.time}
-                            </div>
-                          </div>
+                        <div className="min-w-0 flex-1 pt-1.5">
+                          <p className="text-sm text-gray-900">{item.action}</p>
+                          <p className="text-sm text-gray-500">{item.time}</p>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <ShoppingBagIcon className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-500 text-sm">Aucune commande récente</p>
-                      <p className="text-gray-400 text-xs mt-1">Les nouvelles commandes apparaîtront ici</p>
                     </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white rounded-xl shadow-soft"
-          >
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Actions rapides</h3>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="p-6">
-              <div className="space-y-3">
-                {canAccess('products') && (
-                  <Link href="/admin/products">
-                    <Button className="w-full justify-start" variant="secondary">
-                      <CubeIcon className="h-4 w-4 mr-2" />
-                      Ajouter un produit
-                    </Button>
-                  </Link>
-                )}
-                {canAccess('orders') && (
-                  <Link href="/admin/orders">
-                    <Button className="w-full justify-start" variant="secondary">
-                      <ShoppingBagIcon className="h-4 w-4 mr-2" />
-                      Voir les commandes
-                    </Button>
-                  </Link>
-                )}
-                {canAccess('users') && (
-                  <Link href="/admin/users">
-                    <Button className="w-full justify-start" variant="secondary">
-                      <UsersIcon className="h-4 w-4 mr-2" />
-                      Gérer les utilisateurs
-                    </Button>
-                  </Link>
-                )}
-              </div>
-            </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </AdminLayout>
