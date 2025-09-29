@@ -11,9 +11,23 @@ export async function GET(
     console.log('🔍 API product-stock appelée pour ID:', productId)
 
     // Vérifier les variables d'environnement
+    console.log('🔍 Variables disponibles:', {
+      hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL?.slice(0, 30) + '...',
+      allKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+    })
+
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       console.error('❌ Variables Supabase manquantes')
-      return NextResponse.json({ error: 'Configuration Supabase manquante' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Configuration Supabase manquante',
+        debug: {
+          hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+          hasKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          allKeys: Object.keys(process.env).filter(k => k.includes('SUPABASE'))
+        }
+      }, { status: 500 })
     }
 
     // Utiliser le client serveur pour Vercel
