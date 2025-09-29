@@ -25,12 +25,16 @@ export default function LoginForm({ userType }: LoginFormProps) {
     try {
       // Connexion temporaire simplifiée
       if (userType === 'admin' && email === 'admin@sneakhouse.com' && password === 'admin123') {
-        localStorage.setItem('userRole', 'admin')
-        localStorage.setItem('userEmail', email)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('userRole', 'admin')
+          localStorage.setItem('userEmail', email)
+        }
         router.push('/admin')
       } else if (userType === 'vendor' && email === 'vendeur@sneakhouse.com' && password === 'vendeur123') {
-        localStorage.setItem('userRole', 'vendor')
-        localStorage.setItem('userEmail', email)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('userRole', 'vendor')
+          localStorage.setItem('userEmail', email)
+        }
         router.push('/vendeur')
       } else {
         setError('Email ou mot de passe incorrect')

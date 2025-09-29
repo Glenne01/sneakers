@@ -13,37 +13,68 @@ export interface User {
 export function useAuth(requiredRole?: UserRole) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
 
+  // Attendre que le composant soit monté côté client
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const userRole = localStorage.getItem('userRole') as UserRole
-    const userEmail = localStorage.getItem('userEmail')
+    setMounted(true)
+  }, [])
 
-    if (userRole && userEmail) {
-      setUser({ email: userEmail, role: userRole })
-    } else if (requiredRole) {
-      // Rediriger vers la page de connexion si non connecté
-      const loginPath = requiredRole === 'admin' ? '/admin/login' :
-                       requiredRole === 'vendor' ? '/vendeur/login' : '/login'
-      router.push(loginPath)
-      return
+  useEffect(() => {
+    if (!mounted) return
+
+    try {
+      // Vérifier si l'utilisateur est connecté
+      const userRole = localStorage.getItem('userRole') as UserRole
+      const userEmail = localStorage.getItem('userEmail')
+
+      if (userRole && userEmail) {
+        setUser({ email: userEmail, role: userRole })
+      } else if (requiredRole) {
+        // Rediriger vers la page de connexion si non connecté
+        const loginPath = requiredRole === 'admin' ? '/admin/login' :
+                         requiredRole === 'vendor' ? '/vendeur/login' : '/login'
+        router.push(loginPath)
+        return
+      }
+
+      // Vérifier si l'utilisateur a le bon rôle
+      if (requiredRole && userRole !== requiredRole) {
+        router.push('/unauthorized')
+        return
+      }
+
+      setLoading(false)
+    } catch (error) {
+      console.error('Error accessing localStorage:', error)
+      if (requiredRole) {
+        const loginPath = requiredRole === 'admin' ? '/admin/login' :
+                         requiredRole === 'vendor' ? '/vendeur/login' : '/login'
+        router.push(loginPath)
+      }
+      setLoading(false)
     }
-
-    // Vérifier si l'utilisateur a le bon rôle
-    if (requiredRole && userRole !== requiredRole) {
-      router.push('/unauthorized')
-      return
-    }
-
-    setLoading(false)
-  }, [requiredRole, router])
+  }, [requiredRole, router, mounted])
 
   const logout = () => {
-    localStorage.removeItem('userRole')
-    localStorage.removeItem('userEmail')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('userRole')
+      localStorage.removeItem('userEmail')
+    }
     setUser(null)
     router.push('/')
+  }
+
+  if (!mounted) {
+    return {
+      user: null,
+      loading: true,
+      logout,
+      isAdmin: false,
+      isVendor: false,
+      isCustomer: false
+    }
   }
 
   return {
