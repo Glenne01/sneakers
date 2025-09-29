@@ -48,7 +48,7 @@ export default function ProductDetailPage() {
           console.log('✅ ProductData existe, ID:', productData.id)
           // Charger les tailles et le stock depuis Supabase
           console.log('🔄 Chargement du stock pour le produit ID:', productData.id)
-          const response = await fetch('/api/product-stock/' + productData.id)
+          const response = await fetch('/api/product-sizes/' + productData.id)
           console.log('📡 Réponse API stock:', response.status, response.statusText)
 
           if (response.ok) {
