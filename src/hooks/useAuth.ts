@@ -24,37 +24,48 @@ export function useAuth(requiredRole?: UserRole) {
   useEffect(() => {
     if (!mounted) return
 
-    try {
-      // Vérifier si l'utilisateur est connecté
-      const userRole = localStorage.getItem('userRole') as UserRole
-      const userEmail = localStorage.getItem('userEmail')
+    const checkAuth = async () => {
+      try {
+        // Attendre un peu pour s'assurer que le localStorage est disponible
+        await new Promise(resolve => setTimeout(resolve, 50))
 
-      if (userRole && userEmail) {
-        setUser({ email: userEmail, role: userRole })
-      } else if (requiredRole) {
-        // Rediriger vers la page de connexion si non connecté
-        const loginPath = requiredRole === 'admin' ? '/admin/login' :
-                         requiredRole === 'vendor' ? '/vendeur/login' : '/login'
-        router.push(loginPath)
-        return
-      }
+        // Vérifier si l'utilisateur est connecté
+        const userRole = localStorage.getItem('userRole') as UserRole
+        const userEmail = localStorage.getItem('userEmail')
 
-      // Vérifier si l'utilisateur a le bon rôle
-      if (requiredRole && userRole !== requiredRole) {
-        router.push('/unauthorized')
-        return
-      }
+        console.log('useAuth - checking:', { userRole, userEmail, requiredRole })
 
-      setLoading(false)
-    } catch (error) {
-      console.error('Error accessing localStorage:', error)
-      if (requiredRole) {
-        const loginPath = requiredRole === 'admin' ? '/admin/login' :
-                         requiredRole === 'vendor' ? '/vendeur/login' : '/login'
-        router.push(loginPath)
+        if (userRole && userEmail) {
+          // Vérifier si l'utilisateur a le bon rôle
+          if (requiredRole && userRole !== requiredRole) {
+            console.log('useAuth - wrong role, redirecting to unauthorized')
+            router.push('/unauthorized')
+            return
+          }
+
+          setUser({ email: userEmail, role: userRole })
+          setLoading(false)
+        } else if (requiredRole) {
+          // Rediriger vers la page de connexion si non connecté
+          console.log('useAuth - not authenticated, redirecting to login')
+          const loginPath = requiredRole === 'admin' ? '/admin/login' :
+                           requiredRole === 'vendor' ? '/vendeur/login' : '/login'
+          router.push(loginPath)
+        } else {
+          setLoading(false)
+        }
+      } catch (error) {
+        console.error('Error accessing localStorage:', error)
+        if (requiredRole) {
+          const loginPath = requiredRole === 'admin' ? '/admin/login' :
+                           requiredRole === 'vendor' ? '/vendeur/login' : '/login'
+          router.push(loginPath)
+        }
+        setLoading(false)
       }
-      setLoading(false)
     }
+
+    checkAuth()
   }, [requiredRole, router, mounted])
 
   const logout = () => {

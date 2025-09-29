@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
+import { useAuth } from '@/hooks/useAuth'
 import {
   CubeIcon,
   ShoppingBagIcon,
@@ -25,24 +26,10 @@ interface DashboardStats {
 export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [authLoading, setAuthLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth('admin')
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const userRole = localStorage.getItem('userRole')
-      if (userRole === 'admin') {
-        setIsAuthenticated(true)
-      } else {
-        window.location.href = '/admin/login'
-        return
-      }
-    }
-    setAuthLoading(false)
-  }, [])
-
-  useEffect(() => {
-    if (isAuthenticated) {
+    if (user && user.role === 'admin') {
       setTimeout(() => {
         setStats({
           totalProducts: 100,
@@ -57,7 +44,7 @@ export default function AdminDashboard() {
         setLoading(false)
       }, 1000)
     }
-  }, [isAuthenticated])
+  }, [user])
 
   const StatCard = ({
     title,
@@ -115,7 +102,7 @@ export default function AdminDashboard() {
     )
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return null
   }
 
