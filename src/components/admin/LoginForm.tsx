@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { useAdminStore } from '@/stores/adminStore'
 
 interface LoginFormProps {
   userType: 'admin' | 'vendor'
@@ -16,50 +17,48 @@ export default function LoginForm({ userType }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+  const { login, isAuthenticated } = useAdminStore()
 
   // Check if already authenticated
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const userRole = localStorage.getItem('userRole')
-      if (userRole === userType) {
-        // Already logged in, redirect to dashboard
-        const redirectPath = userType === 'admin' ? '/admin' : '/vendeur'
-        router.replace(redirectPath)
-      }
+    if (isAuthenticated) {
+      const redirectPath = userType === 'admin' ? '/admin' : '/vendeur'
+      router.replace(redirectPath)
     }
-  }, [userType, router])
+  }, [isAuthenticated, userType, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    console.log('Attempting login:', { userType, email, password })
-
     try {
-      // Connexion temporaire simplifiée
+      // Mock authentication
       if (userType === 'admin' && email === 'admin@sneakhouse.com' && password === 'admin123') {
-        console.log('Admin login successful')
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('userRole', 'admin')
-          localStorage.setItem('userEmail', email)
-          console.log('LocalStorage set:', localStorage.getItem('userRole'))
-        }
-        console.log('Redirecting to /admin')
-
-        // Attendre un peu puis rediriger
-        setTimeout(() => {
-          router.replace('/admin')
-        }, 100)
+        login({
+          id: 'admin-1',
+          email: email,
+          firstName: 'Admin',
+          lastName: 'SneakHouse',
+          role: 'admin',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        router.replace('/admin')
       } else if (userType === 'vendor' && email === 'vendeur@sneakhouse.com' && password === 'vendeur123') {
-        console.log('Vendor login successful')
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('userRole', 'vendor')
-          localStorage.setItem('userEmail', email)
-        }
-        router.push('/vendeur')
+        login({
+          id: 'vendor-1',
+          email: email,
+          firstName: 'Vendeur',
+          lastName: 'Test',
+          role: 'vendor',
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        })
+        router.replace('/vendeur')
       } else {
-        console.log('Login failed - incorrect credentials')
         setError('Email ou mot de passe incorrect')
       }
     } catch (error) {

@@ -45,6 +45,9 @@ export const useAdminStore = create<AdminStore>()(
 
       logout: () => {
         set({ user: null, isAuthenticated: false })
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin/login'
+        }
       },
 
       updateUser: (userData: Partial<User>) => {

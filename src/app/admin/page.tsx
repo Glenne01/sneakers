@@ -1,57 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useAdminStore } from '@/stores/adminStore'
 
 export default function AdminDashboard() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    console.log('Admin dashboard mounted')
-
-    const checkAuth = () => {
-      if (typeof window !== 'undefined') {
-        const userRole = localStorage.getItem('userRole')
-        console.log('Dashboard checking auth, userRole:', userRole)
-
-        if (userRole === 'admin') {
-          console.log('User authenticated as admin')
-          setIsAuthenticated(true)
-        } else {
-          console.log('User not authenticated, redirecting...')
-          window.location.href = '/admin/login'
-          return
-        }
-      }
-      setLoading(false)
-    }
-
-    // Attendre que le composant soit bien monté
-    setTimeout(checkAuth, 200)
-  }, [])
-
-  console.log('Dashboard render - authenticated:', isAuthenticated, 'loading:', loading)
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p>Vérification de l'authentification...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <p>Redirection en cours...</p>
-        </div>
-      </div>
-    )
-  }
+  const { user, logout } = useAdminStore()
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">
@@ -96,11 +48,7 @@ export default function AdminDashboard() {
                 Gérer les stocks
               </button>
               <button
-                onClick={() => {
-                  localStorage.removeItem('userRole')
-                  localStorage.removeItem('userEmail')
-                  window.location.href = '/admin/login'
-                }}
+                onClick={logout}
                 className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors"
               >
                 Se déconnecter
