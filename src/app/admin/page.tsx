@@ -15,6 +15,8 @@ export default function AdminDashboard() {
   const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({})
   const [users, setUsers] = useState<any[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [orders, setOrders] = useState<any[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
   const [stats, setStats] = useState({
     productsCount: 0,
     ordersCount: 0,
@@ -29,6 +31,8 @@ export default function AdminDashboard() {
       loadStats()
     } else if (activeTab === 'users') {
       loadUsers()
+    } else if (activeTab === 'orders') {
+      loadOrders()
     }
   }, [activeTab])
 
@@ -96,6 +100,31 @@ export default function AdminDashboard() {
       console.error('Erreur:', error)
     } finally {
       setLoadingUsers(false)
+    }
+  }
+
+  const loadOrders = async () => {
+    setLoadingOrders(true)
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      console.log('Orders loaded:', data, 'Error:', error)
+
+      if (error) {
+        console.error('Erreur chargement commandes:', error)
+        setOrders([])
+        return
+      }
+
+      setOrders(data || [])
+    } catch (error) {
+      console.error('Erreur:', error)
+      setOrders([])
+    } finally {
+      setLoadingOrders(false)
     }
   }
 
@@ -407,7 +436,70 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Gestion des commandes</h2>
             </div>
             <div className="p-6">
-              <p className="text-gray-500">Aucune commande pour le moment</p>
+              {loadingOrders ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                </div>
+              ) : orders.length === 0 ? (
+                <div>
+                  <p className="text-gray-500">Aucune commande visible</p>
+                  <p className="text-sm text-gray-400 mt-2">
+                    Note : Les commandes peuvent être bloquées par les politiques de sécurité (RLS).
+                    Vérifiez les permissions dans Supabase.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Commande</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {orders.map((order) => (
+                        <tr key={order.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{order.order_number}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">
+                              {order.shipping_address?.first_name} {order.shipping_address?.last_name}
+                            </div>
+                            <div className="text-sm text-gray-500">{order.shipping_address?.city}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                              order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                              order.status === 'confirmed' ? 'bg-yellow-100 text-yellow-800' :
+                              order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {order.status === 'pending' ? 'En attente' :
+                               order.status === 'confirmed' ? 'Confirmée' :
+                               order.status === 'processing' ? 'En traitement' :
+                               order.status === 'shipped' ? 'Expédiée' :
+                               order.status === 'delivered' ? 'Livrée' :
+                               'Annulée'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {parseFloat(order.total_amount).toFixed(2)}€
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(order.created_at).toLocaleDateString('fr-FR')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
