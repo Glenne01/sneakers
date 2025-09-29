@@ -34,7 +34,11 @@ export default function LoginForm({ userType }: LoginFormProps) {
           console.log('LocalStorage set:', localStorage.getItem('userRole'))
         }
         console.log('Redirecting to /admin')
-        router.push('/admin')
+
+        // Attendre un peu puis rediriger
+        setTimeout(() => {
+          router.replace('/admin')
+        }, 100)
       } else if (userType === 'vendor' && email === 'vendeur@sneakhouse.com' && password === 'vendeur123') {
         console.log('Vendor login successful')
         if (typeof window !== 'undefined') {
