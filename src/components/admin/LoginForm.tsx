@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
@@ -16,6 +16,18 @@ export default function LoginForm({ userType }: LoginFormProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
+
+  // Check if already authenticated
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userRole = localStorage.getItem('userRole')
+      if (userRole === userType) {
+        // Already logged in, redirect to dashboard
+        const redirectPath = userType === 'admin' ? '/admin' : '/vendeur'
+        router.replace(redirectPath)
+      }
+    }
+  }, [userType, router])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
