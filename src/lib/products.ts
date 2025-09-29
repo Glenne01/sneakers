@@ -33,6 +33,7 @@ export async function getProducts(filters?: { gender?: string }): Promise<Produc
         product_variants(
           *,
           product_stock(
+            id,
             quantity,
             size:sizes(*)
           )

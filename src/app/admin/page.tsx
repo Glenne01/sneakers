@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useAdminStore } from '@/stores/adminStore'
 import { getProducts, ProductWithVariants } from '@/lib/products'
+import { supabase } from '@/lib/supabase'
 
 type Tab = 'dashboard' | 'products' | 'orders' | 'users' | 'vendors'
 
@@ -11,6 +12,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
+  const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({})
 
   useEffect(() => {
     if (activeTab === 'products') {
@@ -23,6 +25,35 @@ export default function AdminDashboard() {
     const data = await getProducts()
     setProducts(data)
     setLoadingProducts(false)
+  }
+
+  const updateStock = async (stockId: string, variantId: string, sizeId: string, newQuantity: number) => {
+    try {
+      const { error } = await supabase
+        .from('product_stock')
+        .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+        .eq('id', stockId)
+
+      if (error) {
+        console.error('Erreur mise à jour stock:', error)
+        alert('Erreur lors de la mise à jour du stock')
+        return
+      }
+
+      // Recharger les produits pour afficher la mise à jour
+      await loadProducts()
+
+      // Supprimer de l'état d'édition
+      const key = `${variantId}-${sizeId}`
+      setEditingStock((prev) => {
+        const newState = { ...prev }
+        delete newState[key]
+        return newState
+      })
+    } catch (error) {
+      console.error('Erreur:', error)
+      alert('Erreur lors de la mise à jour du stock')
+    }
   }
 
   const tabs = [
@@ -201,36 +232,91 @@ export default function AdminDashboard() {
                               }
 
                               // Afficher une ligne par taille
-                              return stocks.map((stockItem: any, index: number) => (
-                                <tr key={`${variant.id}-${stockItem.size?.id || index}`}>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                    {variant.sku}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {variant.color}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {variant.price}€
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                                    {stockItem.size?.size_value || '-'}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                      (stockItem.quantity || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                    }`}>
-                                      {stockItem.quantity || 0} unité{(stockItem.quantity || 0) > 1 ? 's' : ''}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                      variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                                    }`}>
-                                      {variant.is_active ? 'Actif' : 'Inactif'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))
+                              return stocks.map((stockItem: any, index: number) => {
+                                const editKey = `${variant.id}-${stockItem.size?.id}`
+                                const isEditing = editKey in editingStock
+                                const currentStock = isEditing ? editingStock[editKey] : stockItem.quantity
+
+                                return (
+                                  <tr key={`${variant.id}-${stockItem.size?.id || index}`}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                      {variant.sku}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {variant.color}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {variant.price}€
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                      {stockItem.size?.size_value || '-'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      {isEditing ? (
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            value={currentStock}
+                                            onChange={(e) => {
+                                              const value = parseInt(e.target.value) || 0
+                                              setEditingStock((prev) => ({
+                                                ...prev,
+                                                [editKey]: value
+                                              }))
+                                            }}
+                                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                                          />
+                                          <button
+                                            onClick={() => updateStock(stockItem.id, variant.id, stockItem.size?.id, currentStock)}
+                                            className="text-green-600 hover:text-green-900 text-sm font-medium"
+                                          >
+                                            ✓
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setEditingStock((prev) => {
+                                                const newState = { ...prev }
+                                                delete newState[editKey]
+                                                return newState
+                                              })
+                                            }}
+                                            className="text-red-600 hover:text-red-900 text-sm font-medium"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                            (stockItem.quantity || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                          }`}>
+                                            {stockItem.quantity || 0} unité{(stockItem.quantity || 0) > 1 ? 's' : ''}
+                                          </span>
+                                          <button
+                                            onClick={() => {
+                                              setEditingStock((prev) => ({
+                                                ...prev,
+                                                [editKey]: stockItem.quantity || 0
+                                              }))
+                                            }}
+                                            className="text-orange-600 hover:text-orange-900 text-xs font-medium"
+                                          >
+                                            Modifier
+                                          </button>
+                                        </div>
+                                      )}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {variant.is_active ? 'Actif' : 'Inactif'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              })
                             })}
                           </tbody>
                         </table>
