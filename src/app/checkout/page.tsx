@@ -202,7 +202,37 @@ export default function CheckoutPage() {
 
       if (itemsError) throw itemsError
 
-      // 4. Créer le paiement
+      // 4. Décrémenter le stock pour chaque article
+      for (const item of items) {
+        // Récupérer le stock actuel
+        const { data: stockData, error: stockFetchError } = await supabase
+          .from('product_stock')
+          .select('id, quantity')
+          .eq('variant_id', item.variant.id)
+          .eq('size_id', item.size.id)
+          .single()
+
+        if (stockFetchError || !stockData) {
+          console.error('Erreur lors de la récupération du stock:', stockFetchError)
+          continue // Ne pas bloquer la commande si le stock n'est pas trouvé
+        }
+
+        // Décrémenter le stock
+        const newQuantity = Math.max(0, stockData.quantity - item.quantity)
+        const { error: stockUpdateError } = await supabase
+          .from('product_stock')
+          .update({
+            quantity: newQuantity,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', stockData.id)
+
+        if (stockUpdateError) {
+          console.error('Erreur lors de la mise à jour du stock:', stockUpdateError)
+        }
+      }
+
+      // 5. Créer le paiement
       const { error: paymentError } = await supabase
         .from('payments')
         .insert({
