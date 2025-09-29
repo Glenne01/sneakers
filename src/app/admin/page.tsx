@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
-import { useAuth } from '@/hooks/useAuth'
 import {
   CubeIcon,
   ShoppingBagIcon,
@@ -30,7 +29,6 @@ export default function AdminDashboard() {
   const [authLoading, setAuthLoading] = useState(true)
 
   useEffect(() => {
-    // Vérification d'auth simple côté client uniquement
     if (typeof window !== 'undefined') {
       const userRole = localStorage.getItem('userRole')
       if (userRole === 'admin') {
@@ -43,34 +41,23 @@ export default function AdminDashboard() {
     setAuthLoading(false)
   }, [])
 
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null // Redirection en cours
-  }
-
   useEffect(() => {
-    // Simuler le chargement des données
-    setTimeout(() => {
-      setStats({
-        totalProducts: 100,
-        totalOrders: 245,
-        totalUsers: 1340,
-        totalRevenue: 45230,
-        productGrowth: 12,
-        orderGrowth: -5,
-        userGrowth: 18,
-        revenueGrowth: 8
-      })
-      setLoading(false)
-    }, 1000)
-  }, [])
+    if (isAuthenticated) {
+      setTimeout(() => {
+        setStats({
+          totalProducts: 100,
+          totalOrders: 245,
+          totalUsers: 1340,
+          totalRevenue: 45230,
+          productGrowth: 12,
+          orderGrowth: -5,
+          userGrowth: 18,
+          revenueGrowth: 8
+        })
+        setLoading(false)
+      }, 1000)
+    }
+  }, [isAuthenticated])
 
   const StatCard = ({
     title,
@@ -120,6 +107,18 @@ export default function AdminDashboard() {
     </div>
   )
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
+  }
+
   if (loading) {
     return (
       <AdminLayout userRole="admin">
@@ -133,7 +132,6 @@ export default function AdminDashboard() {
   return (
     <AdminLayout userRole="admin">
       <div className="space-y-6">
-        {/* En-tête */}
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Dashboard Admin</h1>
           <p className="mt-2 text-sm text-gray-600">
@@ -141,7 +139,6 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        {/* Statistiques principales */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             title="Total Produits"
@@ -170,7 +167,6 @@ export default function AdminDashboard() {
           />
         </div>
 
-        {/* Actions rapides */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -193,7 +189,6 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Activité récente */}
         <div className="bg-white shadow rounded-lg">
           <div className="px-4 py-5 sm:p-6">
             <h3 className="text-lg leading-6 font-medium text-gray-900 mb-4">
