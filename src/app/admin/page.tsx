@@ -13,10 +13,18 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({})
+  const [stats, setStats] = useState({
+    productsCount: 0,
+    ordersCount: 0,
+    usersCount: 0,
+    revenue: 0
+  })
 
   useEffect(() => {
     if (activeTab === 'products') {
       loadProducts()
+    } else if (activeTab === 'dashboard') {
+      loadStats()
     }
   }, [activeTab])
 
@@ -25,6 +33,43 @@ export default function AdminDashboard() {
     const data = await getProducts()
     setProducts(data)
     setLoadingProducts(false)
+  }
+
+  const loadStats = async () => {
+    try {
+      // Compter les produits
+      const { count: productsCount } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+
+      // Compter les commandes
+      const { count: ordersCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+
+      // Compter les utilisateurs
+      const { count: usersCount } = await supabase
+        .from('users')
+        .select('*', { count: 'exact', head: true })
+
+      // Calculer le CA
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('status', 'delivered')
+
+      const revenue = orders?.reduce((sum, order) => sum + parseFloat(order.total_amount || '0'), 0) || 0
+
+      setStats({
+        productsCount: productsCount || 0,
+        ordersCount: ordersCount || 0,
+        usersCount: usersCount || 0,
+        revenue: Math.round(revenue)
+      })
+    } catch (error) {
+      console.error('Erreur chargement stats:', error)
+    }
   }
 
   const updateStock = async (stockId: string, variantId: string, sizeId: string, newQuantity: number) => {
@@ -114,19 +159,19 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-sm font-medium text-gray-500">Produits</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.productsCount}</p>
               </div>
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-sm font-medium text-gray-500">Commandes</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.ordersCount}</p>
               </div>
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-sm font-medium text-gray-500">Utilisateurs</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.usersCount}</p>
               </div>
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-sm font-medium text-gray-500">Chiffre d'affaires</h3>
-                <p className="text-3xl font-bold text-gray-900 mt-2">0€</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{stats.revenue}€</p>
               </div>
             </div>
 
