@@ -8,7 +8,7 @@ export async function GET(
 ) {
   try {
     const productId = (await params).id
-    console.log('🔍 API product-stock appelée pour ID:', productId)
+    console.log('🔍 API product-stock appelée pour ID:', productId, 'Version: 2.0')
 
     // Vérifier les variables d'environnement
     console.log('🔍 Variables disponibles:', {
