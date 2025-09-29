@@ -1,13 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAdminStore } from '@/stores/adminStore'
+import { getProducts, ProductWithVariants } from '@/lib/products'
 
 type Tab = 'dashboard' | 'products' | 'orders' | 'users' | 'vendors'
 
 export default function AdminDashboard() {
   const { user, logout } = useAdminStore()
   const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [products, setProducts] = useState<ProductWithVariants[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(false)
+
+  useEffect(() => {
+    if (activeTab === 'products') {
+      loadProducts()
+    }
+  }, [activeTab])
+
+  const loadProducts = async () => {
+    setLoadingProducts(true)
+    const data = await getProducts()
+    setProducts(data)
+    setLoadingProducts(false)
+  }
 
   const tabs = [
     { id: 'dashboard' as Tab, label: 'Tableau de bord', icon: '📊' },
@@ -102,7 +118,76 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-500">Aucun produit pour le moment</p>
+              {loadingProducts ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                </div>
+              ) : products.length === 0 ? (
+                <p className="text-gray-500">Aucun produit pour le moment</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marque</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {products.map((product) => {
+                        const totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
+                        const minPrice = Math.min(...product.variants.map(v => v.price))
+                        const maxPrice = Math.max(...product.variants.map(v => v.price))
+                        const priceDisplay = minPrice === maxPrice ? `${minPrice}€` : `${minPrice}€ - ${maxPrice}€`
+
+                        return (
+                          <tr key={product.id}>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                {product.variants[0]?.image_url && (
+                                  <img
+                                    src={product.variants[0].image_url}
+                                    alt={product.name}
+                                    className="h-10 w-10 rounded object-cover mr-3"
+                                  />
+                                )}
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{product.name}</div>
+                                  <div className="text-sm text-gray-500">{product.variants.length} variante(s)</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {product.brand?.name || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {product.category?.name || '-'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {priceDisplay}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                totalStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              }`}>
+                                {totalStock} unités
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                              <button className="text-orange-600 hover:text-orange-900 mr-3">Modifier</button>
+                              <button className="text-red-600 hover:text-red-900">Supprimer</button>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
