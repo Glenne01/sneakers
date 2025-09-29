@@ -22,24 +22,32 @@ export default function LoginForm({ userType }: LoginFormProps) {
     setLoading(true)
     setError('')
 
+    console.log('Attempting login:', { userType, email, password })
+
     try {
       // Connexion temporaire simplifiée
       if (userType === 'admin' && email === 'admin@sneakhouse.com' && password === 'admin123') {
+        console.log('Admin login successful')
         if (typeof window !== 'undefined') {
           localStorage.setItem('userRole', 'admin')
           localStorage.setItem('userEmail', email)
+          console.log('LocalStorage set:', localStorage.getItem('userRole'))
         }
+        console.log('Redirecting to /admin')
         router.push('/admin')
       } else if (userType === 'vendor' && email === 'vendeur@sneakhouse.com' && password === 'vendeur123') {
+        console.log('Vendor login successful')
         if (typeof window !== 'undefined') {
           localStorage.setItem('userRole', 'vendor')
           localStorage.setItem('userEmail', email)
         }
         router.push('/vendeur')
       } else {
+        console.log('Login failed - incorrect credentials')
         setError('Email ou mot de passe incorrect')
       }
     } catch (error) {
+      console.error('Login error:', error)
       setError('Erreur de connexion')
     } finally {
       setLoading(false)
@@ -120,6 +128,7 @@ export default function LoginForm({ userType }: LoginFormProps) {
             type="submit"
             size="lg"
             className="w-full"
+            loading={loading}
             disabled={loading}
           >
             {loading ? 'Connexion...' : 'Se connecter'}
