@@ -125,67 +125,81 @@ export default function AdminDashboard() {
               ) : products.length === 0 ? (
                 <p className="text-gray-500">Aucun produit pour le moment</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Produit</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Marque</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Catégorie</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {products.map((product) => {
-                        const totalStock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0)
-                        const minPrice = Math.min(...product.variants.map(v => v.price))
-                        const maxPrice = Math.max(...product.variants.map(v => v.price))
-                        const priceDisplay = minPrice === maxPrice ? `${minPrice}€` : `${minPrice}€ - ${maxPrice}€`
+                <div className="space-y-4">
+                  {products.map((product) => (
+                    <div key={product.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {/* Product Header */}
+                      <div className="bg-gray-50 px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center">
+                          {product.variants[0]?.image_url && (
+                            <img
+                              src={product.variants[0].image_url}
+                              alt={product.name}
+                              className="h-12 w-12 rounded object-cover mr-4"
+                            />
+                          )}
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{product.name}</h3>
+                            <p className="text-sm text-gray-500">
+                              {product.brand?.name} • {product.category?.name}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <button className="text-orange-600 hover:text-orange-900 mr-3">Modifier</button>
+                          <button className="text-red-600 hover:text-red-900">Supprimer</button>
+                        </div>
+                      </div>
 
-                        return (
-                          <tr key={product.id}>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                {product.variants[0]?.image_url && (
-                                  <img
-                                    src={product.variants[0].image_url}
-                                    alt={product.name}
-                                    className="h-10 w-10 rounded object-cover mr-3"
-                                  />
-                                )}
-                                <div>
-                                  <div className="text-sm font-medium text-gray-900">{product.name}</div>
-                                  <div className="text-sm text-gray-500">{product.variants.length} variante(s)</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {product.brand?.name || '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {product.category?.name || '-'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                              {priceDisplay}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                totalStock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                              }`}>
-                                {totalStock} unités
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button className="text-orange-600 hover:text-orange-900 mr-3">Modifier</button>
-                              <button className="text-red-600 hover:text-red-900">Supprimer</button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
+                      {/* Variants Table */}
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-white">
+                            <tr>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taille</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Couleur</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {product.variants.map((variant) => (
+                              <tr key={variant.id}>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                  {variant.sku}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {variant.size}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {variant.color}
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                  {variant.price}€
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    (variant.stock || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {variant.stock || 0} unité{(variant.stock || 0) > 1 ? 's' : ''}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 whitespace-nowrap">
+                                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {variant.is_active ? 'Actif' : 'Inactif'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
