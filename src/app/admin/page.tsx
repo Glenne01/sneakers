@@ -13,6 +13,8 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [editingStock, setEditingStock] = useState<{ [key: string]: number }>({})
+  const [users, setUsers] = useState<any[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
   const [stats, setStats] = useState({
     productsCount: 0,
     ordersCount: 0,
@@ -25,6 +27,8 @@ export default function AdminDashboard() {
       loadProducts()
     } else if (activeTab === 'dashboard') {
       loadStats()
+    } else if (activeTab === 'users') {
+      loadUsers()
     }
   }, [activeTab])
 
@@ -44,9 +48,11 @@ export default function AdminDashboard() {
         .eq('is_active', true)
 
       // Compter les commandes
-      const { count: ordersCount } = await supabase
+      const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*', { count: 'exact', head: true })
+        .select('*')
+
+      console.log('Orders data:', ordersData, 'Error:', ordersError)
 
       // Compter les utilisateurs
       const { count: usersCount } = await supabase
@@ -63,12 +69,33 @@ export default function AdminDashboard() {
 
       setStats({
         productsCount: productsCount || 0,
-        ordersCount: ordersCount || 0,
+        ordersCount: ordersData?.length || 0,
         usersCount: usersCount || 0,
         revenue: Math.round(revenue)
       })
     } catch (error) {
       console.error('Erreur chargement stats:', error)
+    }
+  }
+
+  const loadUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erreur chargement utilisateurs:', error)
+        return
+      }
+
+      setUsers(data || [])
+    } catch (error) {
+      console.error('Erreur:', error)
+    } finally {
+      setLoadingUsers(false)
     }
   }
 
@@ -391,7 +418,66 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900">Gestion des utilisateurs</h2>
             </div>
             <div className="p-6">
-              <p className="text-gray-500">Aucun utilisateur pour le moment</p>
+              {loadingUsers ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                </div>
+              ) : users.length === 0 ? (
+                <p className="text-gray-500">Aucun utilisateur pour le moment</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date d'inscription</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {users.map((user) => (
+                        <tr key={user.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {user.first_name} {user.last_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{user.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{user.phone || '-'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.role === 'admin' ? 'bg-purple-100 text-purple-800' :
+                              user.role === 'vendor' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {user.role === 'admin' ? 'Administrateur' :
+                               user.role === 'vendor' ? 'Vendeur' :
+                               'Client'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {user.is_active ? 'Actif' : 'Inactif'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(user.created_at).toLocaleDateString('fr-FR')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
