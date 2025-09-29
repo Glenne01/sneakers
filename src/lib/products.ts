@@ -30,7 +30,13 @@ export async function getProducts(filters?: { gender?: string }): Promise<Produc
       .from('products')
       .select(`
         *,
-        product_variants(*),
+        product_variants(
+          *,
+          product_stock(
+            quantity,
+            size:sizes(*)
+          )
+        ),
         brands(*),
         categories(*)
       `)

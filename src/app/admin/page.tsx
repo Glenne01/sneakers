@@ -157,44 +157,81 @@ export default function AdminDashboard() {
                           <thead className="bg-white">
                             <tr>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SKU</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taille</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Couleur</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Prix</th>
+                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Taille</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
                               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                             </tr>
                           </thead>
                           <tbody className="bg-white divide-y divide-gray-200">
-                            {product.variants.map((variant) => (
-                              <tr key={variant.id}>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
-                                  {variant.sku}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {variant.size}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {variant.color}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                  {variant.price}€
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    (variant.stock || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                  }`}>
-                                    {variant.stock || 0} unité{(variant.stock || 0) > 1 ? 's' : ''}
-                                  </span>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {variant.is_active ? 'Actif' : 'Inactif'}
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                            {product.variants.map((variant: any) => {
+                              const stocks = variant.product_stock || []
+
+                              // Si pas de stock, afficher une ligne avec le variant sans taille
+                              if (stocks.length === 0) {
+                                return (
+                                  <tr key={variant.id}>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                      {variant.sku}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {variant.color}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                      {variant.price}€
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                      -
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                                        0 unité
+                                      </span>
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                        variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                      }`}>
+                                        {variant.is_active ? 'Actif' : 'Inactif'}
+                                      </span>
+                                    </td>
+                                  </tr>
+                                )
+                              }
+
+                              // Afficher une ligne par taille
+                              return stocks.map((stockItem: any, index: number) => (
+                                <tr key={`${variant.id}-${stockItem.size?.id || index}`}>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-mono">
+                                    {variant.sku}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {variant.color}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                    {variant.price}€
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                                    {stockItem.size?.size_value || '-'}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      (stockItem.quantity || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                    }`}>
+                                      {stockItem.quantity || 0} unité{(stockItem.quantity || 0) > 1 ? 's' : ''}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                      variant.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {variant.is_active ? 'Actif' : 'Inactif'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))
+                            })}
                           </tbody>
                         </table>
                       </div>
