@@ -17,6 +17,8 @@ export default function AdminDashboard() {
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [orders, setOrders] = useState<any[]>([])
   const [loadingOrders, setLoadingOrders] = useState(false)
+  const [vendors, setVendors] = useState<any[]>([])
+  const [loadingVendors, setLoadingVendors] = useState(false)
   const [stats, setStats] = useState({
     productsCount: 0,
     ordersCount: 0,
@@ -33,6 +35,8 @@ export default function AdminDashboard() {
       loadUsers()
     } else if (activeTab === 'orders') {
       loadOrders()
+    } else if (activeTab === 'vendors') {
+      loadVendors()
     }
   }, [activeTab])
 
@@ -125,6 +129,28 @@ export default function AdminDashboard() {
       setOrders([])
     } finally {
       setLoadingOrders(false)
+    }
+  }
+
+  const loadVendors = async () => {
+    setLoadingVendors(true)
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'vendor')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Erreur chargement vendeurs:', error)
+        return
+      }
+
+      setVendors(data || [])
+    } catch (error) {
+      console.error('Erreur:', error)
+    } finally {
+      setLoadingVendors(false)
     }
   }
 
@@ -585,7 +611,59 @@ export default function AdminDashboard() {
               </div>
             </div>
             <div className="p-6">
-              <p className="text-gray-500">Aucun vendeur pour le moment</p>
+              {loadingVendors ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div>
+                </div>
+              ) : vendors.length === 0 ? (
+                <p className="text-gray-500">Aucun vendeur pour le moment</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Téléphone</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date d'inscription</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {vendors.map((vendor) => (
+                        <tr key={vendor.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              {vendor.first_name} {vendor.last_name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{vendor.email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{vendor.phone || '-'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              vendor.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {vendor.is_active ? 'Actif' : 'Inactif'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(vendor.created_at).toLocaleDateString('fr-FR')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button className="text-orange-600 hover:text-orange-900 mr-3">Modifier</button>
+                            <button className="text-red-600 hover:text-red-900">Désactiver</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
