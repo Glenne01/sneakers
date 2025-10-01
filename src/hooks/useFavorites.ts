@@ -71,6 +71,10 @@ export function useFavorites() {
       await loadFavorites()
       if (!userID) {
         toast.error('Vous devez être connecté pour ajouter des favoris')
+        // Rediriger vers la page de connexion
+        if (typeof window !== 'undefined') {
+          window.location.href = '/compte'
+        }
         return
       }
     }

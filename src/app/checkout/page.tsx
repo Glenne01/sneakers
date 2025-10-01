@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -43,6 +43,8 @@ export default function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [checkingAuth, setCheckingAuth] = useState(true)
   
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     firstName: '',
@@ -65,9 +67,44 @@ export default function CheckoutPage() {
     cardholderName: ''
   })
 
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!session) {
+          toast.error('Vous devez être connecté pour passer commande')
+          router.push('/compte')
+          return
+        }
+
+        setIsAuthenticated(true)
+      } catch (error) {
+        console.error('Erreur vérification auth:', error)
+        router.push('/compte')
+      } finally {
+        setCheckingAuth(false)
+      }
+    }
+
+    checkAuth()
+  }, [router])
+
   const total = getTotal()
   const shipping = total > 100 ? 0 : 9.99
   const finalTotal = total + shipping
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
+      </div>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return null
+  }
 
   if (items.length === 0) {
     return (

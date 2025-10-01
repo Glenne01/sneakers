@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/Button'
 import { getProductBySlug, ProductWithVariants } from '@/lib/products'
 import { useCartStore } from '@/stores/cartStore'
 import type { CartItem } from '@/types/database'
+import { supabase } from '@/lib/supabase'
+import toast from 'react-hot-toast'
 
 interface Size {
   id: string
@@ -72,12 +74,34 @@ export default function ProductDetailPage() {
     }
   }, [slug])
 
-  const handleAddToCart = () => {
+  const checkAuth = async (): Promise<boolean> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        toast.error('Vous devez être connecté pour acheter')
+        router.push('/compte')
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Erreur vérification auth:', error)
+      toast.error('Erreur de connexion')
+      return false
+    }
+  }
+
+  const handleAddToCart = async () => {
+    // Vérifier l'authentification
+    const isAuth = await checkAuth()
+    if (!isAuth) return
+
     if (!selectedSize) {
       setError('Veuillez sélectionner une taille')
       return
     }
-    
+
     const selectedSizeData = sizes.find(s => s.id === selectedSize)
     if (!selectedSizeData || selectedSizeData.stock < quantity) {
       setError('Stock insuffisant pour cette taille')
@@ -112,14 +136,18 @@ export default function ProductDetailPage() {
 
     addItem(cartItem as unknown as CartItem)
     setError('')
-    
+
     // Reset selection
     setSelectedSize('')
     setQuantity(1)
   }
 
-  const handleBuyNow = () => {
-    handleAddToCart()
+  const handleBuyNow = async () => {
+    // Vérifier l'authentification
+    const isAuth = await checkAuth()
+    if (!isAuth) return
+
+    await handleAddToCart()
     // Redirection vers checkout
     router.push('/checkout')
   }
