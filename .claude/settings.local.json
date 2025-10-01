@@ -25,7 +25,9 @@
       "Bash(dir:*)",
       "Bash(node:*)",
       "Bash(python:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "Bash(start chrome \"http://localhost:3000/commandes\")",
+      "Bash(git reset:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

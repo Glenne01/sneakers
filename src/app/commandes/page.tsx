@@ -53,8 +53,6 @@ interface Order {
       image_url?: string
       products: {
         name: string
-        brand: string
-        images: string[]
       }
     } | null
     sizes: {
@@ -108,17 +106,17 @@ export default function CommandesPage() {
   const loadOrders = async (userId: string) => {
     try {
       setLoading(true)
+      console.log('🔍 Chargement des commandes pour userId:', userId)
 
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           *,
-          users!orders_user_id_fkey (first_name, last_name, email),
           order_items (
             *,
             product_variants (
               *,
-              products (name, brand, images)
+              products (name)
             ),
             sizes (size)
           )
@@ -127,15 +125,16 @@ export default function CommandesPage() {
         .order('created_at', { ascending: false })
 
       if (ordersError) {
-        console.error('Erreur lors du chargement des commandes:', ordersError)
-        toast.error('Erreur lors du chargement des commandes')
+        console.error('❌ Erreur Supabase:', ordersError)
+        toast.error(`Erreur: ${ordersError.message}`)
         return
       }
 
+      console.log('✅ Commandes chargées:', ordersData)
       setOrders(ordersData || [])
 
     } catch (error) {
-      console.error('Erreur lors du chargement des commandes:', error)
+      console.error('❌ Erreur lors du chargement des commandes:', error)
       toast.error('Erreur lors du chargement des commandes')
     } finally {
       setLoading(false)

@@ -2,6 +2,7 @@
 
 import { Fragment } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Dialog, Transition } from '@headlessui/react'
 import { XMarkIcon, PlusIcon, MinusIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
@@ -24,8 +25,14 @@ export const CartDrawer = () => {
   }
 
   const handleCheckout = () => {
+    console.log('🛒 Checkout depuis le panier')
     closeCart()
-    router.push('/checkout')
+
+    // Petit délai pour que le drawer se ferme d'abord
+    setTimeout(() => {
+      console.log('🔄 Redirection vers /checkout')
+      router.push('/checkout')
+    }, 300)
   }
 
   return (
@@ -211,13 +218,14 @@ export const CartDrawer = () => {
 
                           {/* Action Buttons */}
                           <div className="space-y-3">
-                            <Button
-                              onClick={handleCheckout}
-                              className="w-full"
-                              size="lg"
-                            >
-                              Finaliser la commande
-                            </Button>
+                            <Link href="/checkout" onClick={closeCart}>
+                              <Button
+                                className="w-full"
+                                size="lg"
+                              >
+                                Finaliser la commande
+                              </Button>
+                            </Link>
                             <Button
                               variant="secondary"
                               onClick={closeCart}

@@ -15,6 +15,7 @@ import { useCartStore } from '@/stores/cartStore'
 import { formatPrice } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
+import { getStripe } from '@/lib/stripe'
 
 interface CustomerInfo {
   firstName: string
@@ -135,211 +136,70 @@ export default function CheckoutPage() {
     }
   }
 
-  const handleShippingSubmit = (e: React.FormEvent) => {
+  const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🎯 Formulaire soumis')
+    console.log('Adresse:', shippingAddress)
+
     if (shippingAddress.address && shippingAddress.city && shippingAddress.postalCode) {
-      handleNextStep()
+      console.log('✅ Validation OK, appel de handleStripeCheckout')
+      // Au lieu de passer à l'étape 3, on redirige vers Stripe
+      await handleStripeCheckout()
+    } else {
+      console.log('❌ Validation échouée')
+      console.log('Adresse:', shippingAddress.address)
+      console.log('Ville:', shippingAddress.city)
+      console.log('Code postal:', shippingAddress.postalCode)
     }
   }
 
-  const generateOrderNumber = () => {
-    const timestamp = Date.now().toString().slice(-6)
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase()
-    return `SH-${timestamp}-${random}`
-  }
-
-  const handlePaymentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!paymentInfo.cardNumber || !paymentInfo.expiryDate || !paymentInfo.cvv || !paymentInfo.cardholderName) {
-      return
-    }
-
+  const handleStripeCheckout = async () => {
     setLoading(true)
+    console.log('🚀 Début du processus de paiement')
+    console.log('Items:', items)
+    console.log('Customer Info:', customerInfo)
+    console.log('Shipping Address:', shippingAddress)
 
     try {
-      const newOrderNumber = generateOrderNumber()
+      console.log('📡 Envoi de la requête à /api/checkout...')
 
-      // 1. Créer l'utilisateur s'il n'existe pas
-      let userId: string | null = null
+      // Créer une session de paiement Stripe
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          items,
+          customerInfo,
+          shippingAddress
+        })
+      })
 
-      // Vérifier si l'utilisateur existe déjà
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', customerInfo.email)
-        .single()
+      console.log('📥 Réponse reçue, status:', response.status)
 
-      if (existingUser) {
-        userId = existingUser.id
+      const data = await response.json()
+      console.log('📦 Données reçues:', data)
+
+      if (!response.ok) {
+        console.error('❌ Erreur API:', data)
+        throw new Error(data.error || 'Erreur lors de la création de la session de paiement')
+      }
+
+      console.log('✅ Session Stripe créée:', data.sessionId)
+      console.log('✅ URL Stripe:', data.url)
+
+      // Rediriger directement vers l'URL de checkout fournie par Stripe
+      if (data.url) {
+        console.log('🔄 Redirection vers Stripe Checkout...')
+        window.location.href = data.url
       } else {
-        // Créer un nouvel utilisateur
-        const { data: newUser, error: userError } = await supabase
-          .from('users')
-          .insert({
-            email: customerInfo.email,
-            first_name: customerInfo.firstName,
-            last_name: customerInfo.lastName,
-            phone: customerInfo.phone,
-            role: 'customer',
-            is_active: true
-          })
-          .select('id')
-          .single()
-
-        if (userError) throw userError
-        userId = newUser.id
+        throw new Error('URL de checkout manquante')
       }
-
-      if (!userId) throw new Error('Impossible de créer ou récupérer l\'utilisateur')
-
-      // 2. Créer la commande
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          order_number: newOrderNumber,
-          user_id: userId,
-          status: 'confirmed',
-          subtotal: total,
-          shipping_cost: shipping,
-          tax_amount: 0,
-          total_amount: finalTotal,
-          currency: 'EUR',
-          shipping_address: {
-            first_name: customerInfo.firstName,
-            last_name: customerInfo.lastName,
-            address: shippingAddress.address,
-            city: shippingAddress.city,
-            postal_code: shippingAddress.postalCode,
-            country: shippingAddress.country,
-            phone: customerInfo.phone
-          }
-        })
-        .select('id')
-        .single()
-
-      if (orderError) throw orderError
-
-      // 3. Créer les articles de la commande
-      const orderItems = items.map(item => ({
-        order_id: order.id,
-        variant_id: item.variant.id,
-        size_id: item.size.id,
-        product_name: item.variant.product?.name || '',
-        variant_color: item.variant.color,
-        variant_sku: item.variant.sku,
-        size_value: item.size.size_value,
-        unit_price: item.variant.price,
-        quantity: item.quantity,
-        line_total: item.variant.price * item.quantity
-      }))
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems)
-
-      if (itemsError) throw itemsError
-
-      // 4. Décrémenter le stock pour chaque article
-      for (const item of items) {
-        // Récupérer le stock actuel
-        const { data: stockData, error: stockFetchError } = await supabase
-          .from('product_stock')
-          .select('id, quantity')
-          .eq('variant_id', item.variant.id)
-          .eq('size_id', item.size.id)
-          .single()
-
-        if (stockFetchError || !stockData) {
-          console.error('Erreur lors de la récupération du stock:', stockFetchError)
-          continue // Ne pas bloquer la commande si le stock n'est pas trouvé
-        }
-
-        // Décrémenter le stock
-        const newQuantity = Math.max(0, stockData.quantity - item.quantity)
-        const { error: stockUpdateError } = await supabase
-          .from('product_stock')
-          .update({
-            quantity: newQuantity,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', stockData.id)
-
-        if (stockUpdateError) {
-          console.error('Erreur lors de la mise à jour du stock:', stockUpdateError)
-        }
-      }
-
-      // 5. Créer le paiement
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          order_id: order.id,
-          payment_method: 'stripe',
-          status: 'completed',
-          amount: finalTotal,
-          currency: 'EUR',
-          transaction_id: `stripe_${Date.now()}`,
-          processed_at: new Date().toISOString()
-        })
-
-      if (paymentError) throw paymentError
-
-      // Succès ! Envoyer l'email de confirmation
-      setOrderNumber(newOrderNumber)
-
-      // Préparer les données pour l'email
-      const emailData = {
-        orderNumber: newOrderNumber,
-        customerName: `${customerInfo.firstName} ${customerInfo.lastName}`,
-        customerEmail: customerInfo.email,
-        items: items.map(item => ({
-          name: item.variant.product?.name || '',
-          size: item.size.size_display || item.size.size_value,
-          quantity: item.quantity,
-          price: item.variant.price,
-          total: item.variant.price * item.quantity
-        })),
-        subtotal: total,
-        shipping: shipping,
-        total: finalTotal,
-        shippingAddress: {
-          firstName: customerInfo.firstName,
-          lastName: customerInfo.lastName,
-          address: shippingAddress.address,
-          city: shippingAddress.city,
-          postalCode: shippingAddress.postalCode,
-          country: shippingAddress.country,
-          phone: customerInfo.phone
-        }
-      }
-
-      // Envoyer l'email de confirmation (ne pas bloquer le processus si ça échoue)
-      try {
-        const response = await fetch('/api/send-confirmation', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(emailData)
-        })
-
-        if (response.ok) {
-          console.log('Email de confirmation envoyé avec succès')
-        } else {
-          console.error('Échec de l\'envoi de l\'email de confirmation')
-        }
-      } catch (emailError) {
-        console.error('Erreur lors de l\'envoi de l\'email:', emailError)
-        // Ne pas faire échouer la commande si l'email ne s'envoie pas
-      }
-
-      handleNextStep()
-      toast.success('Commande passée avec succès ! Vous allez recevoir un email de confirmation.')
 
     } catch (error: any) {
-      console.error('Erreur lors du checkout:', error)
-      toast.error(error.message || 'Erreur lors de la finalisation de la commande')
-    } finally {
+      console.error('❌ Erreur checkout Stripe:', error)
+      toast.error(error.message || 'Erreur lors du paiement')
       setLoading(false)
     }
   }
@@ -351,9 +211,7 @@ export default function CheckoutPage() {
 
   const steps = [
     { number: 1, title: 'Informations personnelles', icon: '👤' },
-    { number: 2, title: 'Adresse de livraison', icon: '🏠' },
-    { number: 3, title: 'Paiement', icon: '💳' },
-    { number: 4, title: 'Confirmation', icon: '✅' }
+    { number: 2, title: 'Adresse & Paiement', icon: '🏠' }
   ]
 
   return (
@@ -516,105 +374,24 @@ export default function CheckoutPage() {
                       <option value="Suisse">Suisse</option>
                     </select>
                   </div>
-                  <div className="flex gap-4">
-                    <Button type="button" variant="secondary" onClick={handlePrevStep} className="flex-1">
-                      Retour
-                    </Button>
-                    <Button type="submit" size="lg" className="flex-1">
-                      Continuer
-                    </Button>
-                  </div>
-                </form>
-              </motion.div>
-            )}
-
-            {/* Step 3: Payment */}
-            {currentStep === 3 && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="bg-white rounded-2xl p-6 shadow-soft"
-              >
-                <h2 className="text-xl font-bold text-gray-900 mb-6">Paiement</h2>
-                <form onSubmit={handlePaymentSubmit} className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nom du porteur *</label>
-                    <input
-                      type="text"
-                      required
-                      value={paymentInfo.cardholderName}
-                      onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardholderName: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Numéro de carte *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="1234 5678 9012 3456"
-                      value={paymentInfo.cardNumber}
-                      onChange={(e) => setPaymentInfo(prev => ({ ...prev, cardNumber: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Date d&apos;expiration *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="MM/YY"
-                        value={paymentInfo.expiryDate}
-                        onChange={(e) => setPaymentInfo(prev => ({ ...prev, expiryDate: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">CVV *</label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="123"
-                        value={paymentInfo.cvv}
-                        onChange={(e) => setPaymentInfo(prev => ({ ...prev, cvv: e.target.value }))}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                      />
-                    </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-blue-700">
+                      <strong>💳 Paiement sécurisé</strong><br/>
+                      Vous serez redirigé vers notre page de paiement sécurisée Stripe pour finaliser votre commande.
+                    </p>
                   </div>
                   <div className="flex gap-4">
                     <Button type="button" variant="secondary" onClick={handlePrevStep} className="flex-1">
                       Retour
                     </Button>
                     <Button type="submit" size="lg" className="flex-1" disabled={loading}>
-                      {loading ? 'Traitement...' : 'Payer maintenant'}
+                      {loading ? 'Redirection...' : 'Procéder au paiement'}
                     </Button>
                   </div>
                 </form>
               </motion.div>
             )}
 
-            {/* Step 4: Confirmation */}
-            {currentStep === 4 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-8 shadow-soft text-center"
-              >
-                <CheckCircleIcon className="h-16 w-16 text-green-500 mx-auto mb-6" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Commande confirmée !</h2>
-                <p className="text-gray-600 mb-8">
-                  Votre commande a été traitée avec succès. Vous recevrez un email de confirmation avec les détails de votre commande.
-                </p>
-                <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-600">Numéro de commande</p>
-                  <p className="text-lg font-bold text-gray-900">{orderNumber}</p>
-                </div>
-                <Button onClick={handleOrderComplete} size="lg" className="w-full">
-                  Continuer mes achats
-                </Button>
-              </motion.div>
-            )}
           </div>
 
           {/* Order Summary */}
