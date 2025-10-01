@@ -2,18 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
 export async function POST(request: NextRequest) {
-  // Initialiser Stripe dans la fonction pour éviter les erreurs de build
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-    apiVersion: '2024-12-18.acacia'
-  })
+  console.log('🔧 API /api/checkout appelée')
 
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return NextResponse.json(
-      { error: 'Configuration Stripe manquante' },
-      { status: 500 }
-    )
-  }
   try {
+    // Vérifier les variables d'environnement
+    if (!process.env.STRIPE_SECRET_KEY) {
+      console.error('❌ STRIPE_SECRET_KEY manquante')
+      return NextResponse.json(
+        { error: 'Configuration Stripe manquante' },
+        { status: 500 }
+      )
+    }
+
+    console.log('✅ STRIPE_SECRET_KEY présente')
+
+    // Initialiser Stripe dans la fonction pour éviter les erreurs de build
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2024-11-20.acacia' as any
+    })
+
+    console.log('✅ Stripe initialisé')
     const body = await request.json()
     const { items, customerInfo, shippingAddress } = body
 
@@ -85,13 +93,17 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    console.log('✅ Session créée:', session.id)
+
     return NextResponse.json({
       sessionId: session.id,
       url: session.url
     })
 
   } catch (error: any) {
-    console.error('Erreur création session Stripe:', error)
+    console.error('❌ Erreur création session Stripe:', error)
+    console.error('Message:', error.message)
+    console.error('Stack:', error.stack)
     return NextResponse.json(
       { error: error.message || 'Erreur lors de la création de la session de paiement' },
       { status: 500 }
