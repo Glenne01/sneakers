@@ -138,9 +138,18 @@ export default function CheckoutPage() {
 
   const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('🎯 Formulaire soumis')
+    console.log('Adresse:', shippingAddress)
+
     if (shippingAddress.address && shippingAddress.city && shippingAddress.postalCode) {
+      console.log('✅ Validation OK, appel de handleStripeCheckout')
       // Au lieu de passer à l'étape 3, on redirige vers Stripe
       await handleStripeCheckout()
+    } else {
+      console.log('❌ Validation échouée')
+      console.log('Adresse:', shippingAddress.address)
+      console.log('Ville:', shippingAddress.city)
+      console.log('Code postal:', shippingAddress.postalCode)
     }
   }
 
