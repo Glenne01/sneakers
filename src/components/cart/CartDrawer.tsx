@@ -2,6 +2,7 @@
 
 import { Fragment } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Dialog, Transition } from '@headlessui/react'
 import { XMarkIcon, PlusIcon, MinusIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
@@ -217,13 +218,14 @@ export const CartDrawer = () => {
 
                           {/* Action Buttons */}
                           <div className="space-y-3">
-                            <Button
-                              onClick={handleCheckout}
-                              className="w-full"
-                              size="lg"
-                            >
-                              Finaliser la commande
-                            </Button>
+                            <Link href="/checkout" onClick={closeCart}>
+                              <Button
+                                className="w-full"
+                                size="lg"
+                              >
+                                Finaliser la commande
+                              </Button>
+                            </Link>
                             <Button
                               variant="secondary"
                               onClick={closeCart}
