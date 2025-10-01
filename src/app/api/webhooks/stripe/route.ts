@@ -2,13 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabase } from '@/lib/supabase'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia'
-})
-
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
-
 export async function POST(request: NextRequest) {
+  // Initialiser Stripe dans la fonction pour éviter les erreurs de build
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+    apiVersion: '2024-12-18.acacia'
+  })
+
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || ''
+
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
+    return NextResponse.json(
+      { error: 'Configuration Stripe manquante' },
+      { status: 500 }
+    )
+  }
   try {
     const body = await request.text()
     const signature = request.headers.get('stripe-signature')

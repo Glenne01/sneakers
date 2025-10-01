@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia'
-})
-
 export async function POST(request: NextRequest) {
+  // Initialiser Stripe dans la fonction pour éviter les erreurs de build
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+    apiVersion: '2024-12-18.acacia'
+  })
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: 'Configuration Stripe manquante' },
+      { status: 500 }
+    )
+  }
   try {
     const body = await request.json()
     const { items, customerInfo, shippingAddress } = body
