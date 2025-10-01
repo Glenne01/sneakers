@@ -24,8 +24,14 @@ export const CartDrawer = () => {
   }
 
   const handleCheckout = () => {
+    console.log('🛒 Checkout depuis le panier')
     closeCart()
-    router.push('/checkout')
+
+    // Petit délai pour que le drawer se ferme d'abord
+    setTimeout(() => {
+      console.log('🔄 Redirection vers /checkout')
+      router.push('/checkout')
+    }, 300)
   }
 
   return (
