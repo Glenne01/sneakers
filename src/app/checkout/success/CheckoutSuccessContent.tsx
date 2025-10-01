@@ -4,20 +4,25 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { CheckCircleIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ShoppingBagIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/stores/cartStore'
+import toast from 'react-hot-toast'
 
 export default function CheckoutSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { clearCart } = useCartStore()
+  const { items, clearCart } = useCartStore()
   const [sessionId, setSessionId] = useState<string | null>(null)
+  const [emailSent, setEmailSent] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
 
   useEffect(() => {
     const session_id = searchParams.get('session_id')
     if (session_id) {
       setSessionId(session_id)
+      // Envoyer l'email de confirmation
+      sendConfirmationEmail(session_id)
       // Vider le panier après un paiement réussi
       clearCart()
     } else {
@@ -25,6 +30,49 @@ export default function CheckoutSuccessContent() {
       router.push('/')
     }
   }, [searchParams, clearCart, router])
+
+  const sendConfirmationEmail = async (session_id: string) => {
+    try {
+      setSendingEmail(true)
+
+      // Récupérer les informations de la session Stripe
+      const response = await fetch(`/api/checkout/session?session_id=${session_id}`)
+
+      if (!response.ok) {
+        console.error('Erreur lors de la récupération de la session')
+        return
+      }
+
+      const sessionData = await response.json()
+
+      // Envoyer l'email de confirmation
+      const emailResponse = await fetch('/api/send-confirmation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          orderNumber: session_id.substring(0, 8).toUpperCase(),
+          customerName: sessionData.customer_details?.name || 'Client',
+          customerEmail: sessionData.customer_details?.email,
+          items: items,
+          subtotal: sessionData.amount_subtotal / 100,
+          shipping: sessionData.shipping_cost?.amount_total / 100 || 0,
+          total: sessionData.amount_total / 100,
+          shippingAddress: sessionData.shipping_details?.address || sessionData.customer_details?.address
+        })
+      })
+
+      if (emailResponse.ok) {
+        setEmailSent(true)
+        toast.success('Email de confirmation envoyé !')
+      }
+    } catch (error) {
+      console.error('Erreur lors de l\'envoi de l\'email:', error)
+    } finally {
+      setSendingEmail(false)
+    }
+  }
 
   if (!sessionId) {
     return (
@@ -61,9 +109,26 @@ export default function CheckoutSuccessContent() {
           </h1>
 
           {/* Message */}
-          <p className="text-gray-600 mb-8">
-            Votre commande a été confirmée avec succès. Vous recevrez un email de confirmation avec tous les détails de votre commande sous peu.
+          <p className="text-gray-600 mb-4">
+            Votre commande a été confirmée avec succès.
           </p>
+
+          {/* Email Status */}
+          {sendingEmail ? (
+            <div className="flex items-center justify-center text-sm text-gray-500 mb-8">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
+              Envoi de l'email de confirmation...
+            </div>
+          ) : emailSent ? (
+            <div className="flex items-center justify-center text-sm text-green-600 mb-8">
+              <EnvelopeIcon className="h-4 w-4 mr-2" />
+              Email de confirmation envoyé !
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500 mb-8">
+              Vous recevrez un email de confirmation sous peu.
+            </p>
+          )}
 
           {/* Session Info */}
           <div className="bg-gray-50 rounded-lg p-4 mb-8">
