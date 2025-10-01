@@ -187,27 +187,15 @@ export default function CheckoutPage() {
       }
 
       console.log('✅ Session Stripe créée:', data.sessionId)
-      console.log('🔄 Chargement de Stripe...')
+      console.log('✅ URL Stripe:', data.url)
 
-      // Rediriger vers Stripe Checkout
-      const stripe = await getStripe()
-      if (!stripe) {
-        console.error('❌ Stripe non chargé')
-        throw new Error('Stripe n\'a pas pu être chargé')
+      // Rediriger directement vers l'URL de checkout fournie par Stripe
+      if (data.url) {
+        console.log('🔄 Redirection vers Stripe Checkout...')
+        window.location.href = data.url
+      } else {
+        throw new Error('URL de checkout manquante')
       }
-
-      console.log('✅ Stripe chargé, redirection vers checkout...')
-
-      const { error } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId
-      })
-
-      if (error) {
-        console.error('❌ Erreur redirection Stripe:', error)
-        throw new Error(error.message)
-      }
-
-      console.log('✅ Redirection réussie')
 
     } catch (error: any) {
       console.error('❌ Erreur checkout Stripe:', error)
