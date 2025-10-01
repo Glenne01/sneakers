@@ -8,6 +8,9 @@ import { CheckCircleIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/stores/cartStore'
 
+// Désactiver le pré-rendu pour cette page dynamique
+export const dynamic = 'force-dynamic'
+
 function CheckoutSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
