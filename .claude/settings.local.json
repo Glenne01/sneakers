@@ -27,7 +27,9 @@
       "Bash(python:*)",
       "WebFetch(domain:localhost)",
       "Bash(start chrome \"http://localhost:3000/commandes\")",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
