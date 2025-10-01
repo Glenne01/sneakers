@@ -146,8 +146,14 @@ export default function CheckoutPage() {
 
   const handleStripeCheckout = async () => {
     setLoading(true)
+    console.log('🚀 Début du processus de paiement')
+    console.log('Items:', items)
+    console.log('Customer Info:', customerInfo)
+    console.log('Shipping Address:', shippingAddress)
 
     try {
+      console.log('📡 Envoi de la requête à /api/checkout...')
+
       // Créer une session de paiement Stripe
       const response = await fetch('/api/checkout', {
         method: 'POST',
@@ -161,28 +167,41 @@ export default function CheckoutPage() {
         })
       })
 
+      console.log('📥 Réponse reçue, status:', response.status)
+
       const data = await response.json()
+      console.log('📦 Données reçues:', data)
 
       if (!response.ok) {
+        console.error('❌ Erreur API:', data)
         throw new Error(data.error || 'Erreur lors de la création de la session de paiement')
       }
+
+      console.log('✅ Session Stripe créée:', data.sessionId)
+      console.log('🔄 Chargement de Stripe...')
 
       // Rediriger vers Stripe Checkout
       const stripe = await getStripe()
       if (!stripe) {
+        console.error('❌ Stripe non chargé')
         throw new Error('Stripe n\'a pas pu être chargé')
       }
+
+      console.log('✅ Stripe chargé, redirection vers checkout...')
 
       const { error } = await stripe.redirectToCheckout({
         sessionId: data.sessionId
       })
 
       if (error) {
+        console.error('❌ Erreur redirection Stripe:', error)
         throw new Error(error.message)
       }
 
+      console.log('✅ Redirection réussie')
+
     } catch (error: any) {
-      console.error('Erreur checkout Stripe:', error)
+      console.error('❌ Erreur checkout Stripe:', error)
       toast.error(error.message || 'Erreur lors du paiement')
       setLoading(false)
     }
