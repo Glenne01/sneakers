@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
             *,
             products (name)
           ),
-          sizes (size)
+          sizes (size_value, size_display)
         )
       `)
       .eq('user_id', userId)

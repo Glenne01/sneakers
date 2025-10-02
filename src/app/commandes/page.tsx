@@ -56,7 +56,8 @@ interface Order {
       }
     } | null
     sizes: {
-      size: string
+      size_value: string
+      size_display: string
     } | null
   }>
 }
@@ -453,7 +454,7 @@ export default function CommandesPage() {
                               {item.product_variants?.products.name}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {item.product_variants?.color} • Taille {item.sizes?.size}
+                              {item.product_variants?.color} • Taille {item.sizes?.size_display}
                             </p>
                             <p className="text-xs text-gray-500">
                               Quantité: {item.quantity}
