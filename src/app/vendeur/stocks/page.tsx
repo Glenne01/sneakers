@@ -1,565 +1,406 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
-import VendorLayout from '@/components/vendor/VendorLayout'
-import { StockOverview, StockAlert, StockMovement } from '@/types/database'
-import { supabase } from '@/lib/supabase'
-import { toast } from 'react-hot-toast'
-import {
-  ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
-  Cog6ToothIcon,
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import Image from 'next/image'
+import { 
+  PlusIcon,
+  MagnifyingGlassIcon,
+  PencilIcon,
+  TrashIcon,
   EyeIcon
 } from '@heroicons/react/24/outline'
+import VendorLayout from '@/components/vendor/VendorLayout'
+import { Button } from '@/components/ui/Button'
+import { useAdminStore } from '@/stores/adminStore'
+import { usePermissions } from '@/hooks/usePermissions'
+import { getProducts, ProductWithVariants } from '@/lib/products'
 
-interface StockData {
-  overview: StockOverview[]
-  alerts: StockAlert[]
-  recentMovements: StockMovement[]
+interface Product {
+  id: string
+  name: string
+  description: string
+  basePrice: number
+  gender: 'homme' | 'femme' | 'enfant' | 'unisexe'
+  brand: string
+  category: string
+  isActive: boolean
+  variants: {
+    id: string
+    sku: string
+    color: string
+    price: number
+    imageUrl: string
+    stock: number
+  }[]
+  createdAt: string
 }
 
 export default function VendorStocksPage() {
-  const [stockData, setStockData] = useState<StockData>({
-    overview: [],
-    alerts: [],
-    recentMovements: []
-  })
+  const { user } = useAdminStore()
+  const { hasPermission } = usePermissions(user?.role || 'user')
+  const [products, setProducts] = useState<ProductWithVariants[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedTab, setSelectedTab] = useState<'overview' | 'alerts' | 'movements'>('overview')
-  const [adjustmentModal, setAdjustmentModal] = useState<{
-    open: boolean
-    variantId?: string
-    sizeId?: string
-    currentStock?: number
-  }>({
-    open: false
-  })
+  const [searchTerm, setSearchTerm] = useState('')
+  const [selectedProduct, setSelectedProduct] = useState<ProductWithVariants | null>(null)
+  const [showCreateForm, setShowCreateForm] = useState(false)
 
   useEffect(() => {
-    loadStockData()
+    const loadProducts = async () => {
+      try {
+        const fetchedProducts = await getProducts()
+        setProducts(fetchedProducts)
+      } catch (error) {
+        console.error('Erreur lors du chargement des produits:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadProducts()
   }, [])
 
-  const loadStockData = async () => {
-    try {
-      setLoading(true)
+  const canCreate = hasPermission('products', 'create')
+  const canUpdate = hasPermission('products', 'update')
+  const canDelete = hasPermission('products', 'delete')
 
-      // Charger vue d'ensemble
-      const { data: overview, error: overviewError } = await supabase
-        .from('stock_overview')
-        .select('*')
-        .order('last_movement_date', { ascending: false })
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.brand?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
-      if (overviewError) throw overviewError
-
-      // Charger alertes actives
-      const { data: alerts, error: alertsError } = await supabase
-        .from('stock_alerts')
-        .select(`
-          *,
-          product_variants!inner(
-            sku,
-            color,
-            products!inner(name, brands(name))
-          ),
-          sizes!inner(size_display)
-        `)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-
-      if (alertsError) throw alertsError
-
-      // Charger mouvements récents
-      const { data: movements, error: movementsError } = await supabase
-        .from('stock_movements')
-        .select(`
-          *,
-          product_variants!inner(
-            sku,
-            color,
-            products!inner(name)
-          ),
-          sizes!inner(size_display),
-          users(first_name, last_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (movementsError) throw movementsError
-
-      setStockData({
-        overview: overview || [],
-        alerts: alerts || [],
-        recentMovements: movements || []
-      })
-    } catch (error) {
-      console.error('Erreur chargement données stock:', error)
-      toast.error('Erreur lors du chargement')
-    } finally {
-      setLoading(false)
-    }
+  const toggleProductStatus = async (productId: string) => {
+    // TODO: Appel API pour activer/désactiver le produit
+    setProducts(prev => prev.map(product =>
+      product.id === productId ? { ...product, is_active: !product.is_active } : product
+    ))
   }
 
-  const handleStockAdjustment = async (variantId: string, sizeId: string, newQuantity: number, reason: string) => {
-    try {
-      const response = await fetch('/api/stock', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          variant_id: variantId,
-          size_id: sizeId,
-          new_quantity: newQuantity,
-          reason
-        })
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error)
+  const deleteProduct = async (productId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer ce produit ? Cette action est irréversible.')) {
+      try {
+        // TODO: Appel API pour supprimer le produit
+        // Supprimer de l'état local en attendant
+        setProducts(prev => prev.filter(product => product.id !== productId))
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        alert('Erreur lors de la suppression du produit')
       }
-
-      toast.success('Stock mis à jour avec succès')
-      setAdjustmentModal({ open: false })
-      loadStockData()
-    } catch (error) {
-      console.error('Erreur ajustement stock:', error)
-      toast.error('Erreur lors de l\'ajustement')
     }
   }
 
-  const resolveAlert = async (alertId: string) => {
-    try {
-      const response = await fetch('/api/stock/alerts', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alert_id: alertId })
-      })
-
-      if (!response.ok) throw new Error('Erreur résolution alerte')
-
-      toast.success('Alerte résolue')
-      loadStockData()
-    } catch (error) {
-      console.error('Erreur résolution alerte:', error)
-      toast.error('Erreur lors de la résolution')
-    }
-  }
-
-  const getAlertIcon = (type: string) => {
-    switch (type) {
-      case 'out_of_stock':
-        return <ExclamationTriangleIcon className="w-5 h-5 text-red-500" />
-      case 'low_stock':
-        return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-500" />
-      case 'overstocked':
-        return <ArrowUpIcon className="w-5 h-5 text-blue-500" />
-      default:
-        return <ClockIcon className="w-5 h-5 text-gray-500" />
-    }
-  }
-
-  const getMovementIcon = (type: string) => {
-    switch (type) {
-      case 'in':
-        return <ArrowUpIcon className="w-4 h-4 text-green-500" />
-      case 'out':
-        return <ArrowDownIcon className="w-4 h-4 text-red-500" />
-      case 'adjustment':
-        return <Cog6ToothIcon className="w-4 h-4 text-blue-500" />
-      default:
-        return <ClockIcon className="w-4 h-4 text-gray-500" />
-    }
-  }
-
-  if (loading) {
-    return (
-      <VendorLayout>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-        </div>
-      </VendorLayout>
-    )
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })
   }
 
   return (
     <VendorLayout>
-      <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Gestion des Stocks</h1>
-        <p className="text-gray-600">Monitoring et gestion avancée des stocks</p>
-      </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Gestion des stocks</h1>
+            <p className="text-gray-600 mt-1">{filteredProducts.length} produits trouvés</p>
+          </div>
+          {canCreate && (
+            <Button onClick={() => setShowCreateForm(true)} className="mt-4 sm:mt-0">
+              <PlusIcon className="h-5 w-5 mr-2" />
+              Nouveau produit
+            </Button>
+          )}
+        </div>
 
-      {/* Statistiques */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <EyeIcon className="w-6 h-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Produits</p>
-              <p className="text-2xl font-bold text-gray-900">{stockData.overview.length}</p>
-            </div>
+        {/* Search */}
+        <div className="bg-white rounded-xl shadow-soft p-6">
+          <div className="relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Rechercher par nom, marque ou catégorie..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+            />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <ExclamationTriangleIcon className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Alertes Actives</p>
-              <p className="text-2xl font-bold text-gray-900">{stockData.alerts.length}</p>
-            </div>
+        {/* Products Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="bg-white rounded-xl shadow-soft overflow-hidden">
+                <div className="aspect-square bg-gray-200 animate-pulse" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded animate-pulse" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded animate-pulse w-1/2" />
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <ClockIcon className="w-6 h-6 text-yellow-600" />
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+              <span className="text-gray-400 text-2xl">📦</span>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Stock Faible</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stockData.alerts.filter(a => a.alert_type === 'low_stock').length}
-              </p>
-            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun produit trouvé</h3>
+            <p className="text-gray-500 mb-6">
+              {searchTerm ? 'Essayez de modifier vos critères de recherche.' : 'Aucun produit n\'a été trouvé dans la base de données.'}
+            </p>
           </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <ArrowDownIcon className="w-6 h-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Ruptures</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stockData.alerts.filter(a => a.alert_type === 'out_of_stock').length}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Onglets */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          {[
-            { id: 'overview', name: 'Vue d\'ensemble', count: stockData.overview.length },
-            { id: 'alerts', name: 'Alertes', count: stockData.alerts.length },
-            { id: 'movements', name: 'Mouvements', count: stockData.recentMovements.length }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setSelectedTab(tab.id as any)}
-              className={`py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                selectedTab === tab.id
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProducts.map((product) => (
+            <motion.div
+              key={product.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-xl shadow-soft overflow-hidden"
             >
-              {tab.name}
-              <span className="ml-2 py-0.5 px-2 rounded-full text-xs bg-gray-100 text-gray-900">
-                {tab.count}
-              </span>
-            </button>
-          ))}
-        </nav>
-      </div>
+              <div className="relative aspect-square">
+                <Image
+                  src={product.variants[0]?.image_url || '/placeholder-sneaker.jpg'}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                />
+                <div className="absolute top-4 right-4">
+                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                    product.is_active
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {product.is_active ? 'Actif' : 'Inactif'}
+                  </span>
+                </div>
+              </div>
 
-      {/* Contenu des onglets */}
-      {selectedTab === 'overview' && (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Stock Overview</h3>
+              <div className="p-4">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 mb-1">{product.name}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{product.brand?.name} • {product.category?.name}</p>
+                  </div>
+                  <span className="text-lg font-bold text-gray-900">€{product.base_price}</span>
+                </div>
+
+                <p className="text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
+
+                <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <span>{product.variants?.length || 0} variant{product.variants?.length !== 1 ? 's' : ''}</span>
+                  <span className="capitalize">{product.gender}</span>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setSelectedProduct(product)}
+                    className="flex-1"
+                  >
+                    <EyeIcon className="h-4 w-4 mr-1" />
+                    Voir
+                  </Button>
+                  
+                  {canUpdate && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => toggleProductStatus(product.id)}
+                      className="px-3"
+                    >
+                      <PencilIcon className="h-4 w-4" />
+                    </Button>
+                  )}
+                  
+                  {canDelete && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => deleteProduct(product.id)}
+                      className="px-3 text-red-600 hover:text-red-700"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+            ))}
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Produit
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Taille
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stock Physique
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Réservé
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Disponible
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Alertes
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stockData.overview.map((item) => (
-                  <tr key={`${item.variant_id}-${item.size_display}`} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+        )}
+
+        {/* Product Detail Modal */}
+        {selectedProduct && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen p-4">
+              <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setSelectedProduct(null)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900">{selectedProduct.name}</h2>
+                </div>
+
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Image */}
+                    <div className="relative aspect-square rounded-lg overflow-hidden">
+                      <Image
+                        src={selectedProduct.variants[0]?.image_url || '/placeholder-sneaker.jpg'}
+                        alt={selectedProduct.name}
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+
+                    {/* Details */}
+                    <div className="space-y-4">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{item.product_name}</div>
-                        <div className="text-sm text-gray-500">{item.sku} - {item.color}</div>
+                        <h3 className="font-medium text-gray-900 mb-2">Informations générales</h3>
+                        <div className="space-y-2 text-sm">
+                          <p><span className="font-medium">Marque:</span> {selectedProduct.brand?.name}</p>
+                          <p><span className="font-medium">Catégorie:</span> {selectedProduct.category?.name}</p>
+                          <p><span className="font-medium">Genre:</span> {selectedProduct.gender}</p>
+                          <p><span className="font-medium">Prix de base:</span> €{selectedProduct.base_price}</p>
+                          <p><span className="font-medium">Créé le:</span> {formatDate(selectedProduct.created_at)}</p>
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.size_display}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.physical_stock}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {item.reserved_quantity}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-medium ${
-                        item.available_quantity <= 0 ? 'text-red-600' :
-                        item.available_quantity <= 5 ? 'text-yellow-600' : 'text-green-600'
-                      }`}>
-                        {item.available_quantity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {item.active_alerts > 0 && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                          {item.active_alerts} alerte{item.active_alerts > 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <button
-                        onClick={() => setAdjustmentModal({
-                          open: true,
-                          variantId: item.variant_id,
-                          sizeId: item.size_display, // Note: besoin de l'ID de taille, pas l'affichage
-                          currentStock: item.physical_stock
-                        })}
-                        className="text-blue-600 hover:text-blue-900"
-                      >
-                        Ajuster
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
 
-      {selectedTab === 'alerts' && (
-        <div className="space-y-4">
-          {stockData.alerts.map((alert) => (
-            <div key={alert.id} className="bg-white rounded-lg shadow-sm border p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-4">
-                  {getAlertIcon(alert.alert_type)}
-                  <div>
-                    <h4 className="text-lg font-medium text-gray-900">
-                      {alert.alert_type === 'out_of_stock' ? 'Rupture de stock' :
-                       alert.alert_type === 'low_stock' ? 'Stock faible' : 'Surstock'}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {alert.product_variants?.products?.name} - {alert.product_variants?.color}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Taille: {alert.sizes?.size_display} | Stock actuel: {alert.current_stock} | Seuil: {alert.threshold_value}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(alert.created_at).toLocaleString()}
-                    </p>
+                      <div>
+                        <h3 className="font-medium text-gray-900 mb-2">Description</h3>
+                        <p className="text-sm text-gray-600">{selectedProduct.description}</p>
+                      </div>
+
+                      <div>
+                        <h3 className="font-medium text-gray-900 mb-2">Variantes</h3>
+                        <div className="space-y-2">
+                          {selectedProduct.variants?.map(variant => (
+                            <div key={variant.id} className="p-3 bg-gray-50 rounded-lg">
+                              <div className="flex justify-between items-center">
+                                <div>
+                                  <p className="font-medium text-sm">{variant.sku}</p>
+                                  <p className="text-sm text-gray-600">{variant.color}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium">€{variant.price}</p>
+                                  <p className="text-sm text-gray-600">
+                                    {variant.is_active ? 'Actif' : 'Inactif'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )) || <p className="text-sm text-gray-500">Aucune variante</p>}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => resolveAlert(alert.id)}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <CheckCircleIcon className="w-4 h-4 mr-2" />
-                  Résoudre
-                </button>
-              </div>
+
+                <div className="p-6 border-t border-gray-200 flex justify-end">
+                  <Button onClick={() => setSelectedProduct(null)} variant="secondary">
+                    Fermer
+                  </Button>
+                </div>
+              </motion.div>
             </div>
-          ))}
-        </div>
-      )}
-
-      {selectedTab === 'movements' && (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-medium text-gray-900">Mouvements Récents</h3>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Produit
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Changement
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Stock Avant/Après
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Raison
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {stockData.recentMovements.map((movement) => (
-                  <tr key={movement.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getMovementIcon(movement.movement_type)}
-                        <span className="ml-2 text-sm text-gray-900 capitalize">
-                          {movement.movement_type}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+        )}
+
+        {/* Create Product Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex items-center justify-center min-h-screen p-4">
+              <div className="fixed inset-0 bg-black bg-opacity-50" onClick={() => setShowCreateForm(false)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="relative bg-white rounded-xl shadow-xl max-w-2xl w-full"
+              >
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-gray-900">Nouveau produit</h2>
+                </div>
+
+                <div className="p-6">
+                  <form className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {movement.product_variants?.products?.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {movement.product_variants?.sku} - Taille {movement.sizes?.size_display}
-                        </div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Nom du produit</label>
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="Nom du produit"
+                        />
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`text-sm font-medium ${
-                        movement.quantity_change > 0 ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {movement.quantity_change > 0 ? '+' : ''}{movement.quantity_change}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {movement.quantity_before} → {movement.quantity_after}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {movement.reason || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(movement.created_at).toLocaleString()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Prix de base (€)</label>
+                        <input
+                          type="number"
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                          placeholder="0.00"
+                        />
+                      </div>
+                    </div>
 
-      {/* Modal d'ajustement de stock */}
-      {adjustmentModal.open && (
-        <StockAdjustmentModal
-          isOpen={adjustmentModal.open}
-          onClose={() => setAdjustmentModal({ open: false })}
-          variantId={adjustmentModal.variantId!}
-          sizeId={adjustmentModal.sizeId!}
-          currentStock={adjustmentModal.currentStock!}
-          onAdjust={handleStockAdjustment}
-        />
-      )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                        placeholder="Description du produit"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Marque</label>
+                        <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                          <option>Adidas</option>
+                          <option>Nike</option>
+                          <option>Puma</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
+                        <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                          <option>Sneakers</option>
+                          <option>Running</option>
+                          <option>Basketball</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Genre</label>
+                        <select className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                          <option value="homme">Homme</option>
+                          <option value="femme">Femme</option>
+                          <option value="enfant">Enfant</option>
+                          <option value="unisexe">Unisexe</option>
+                        </select>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+
+                <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                  <Button onClick={() => setShowCreateForm(false)} variant="secondary">
+                    Annuler
+                  </Button>
+                  <Button>
+                    Créer le produit
+                  </Button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
       </div>
     </VendorLayout>
-  )
-}
-
-// Modal pour ajustement de stock
-function StockAdjustmentModal({
-  isOpen,
-  onClose,
-  variantId,
-  sizeId,
-  currentStock,
-  onAdjust
-}: {
-  isOpen: boolean
-  onClose: () => void
-  variantId: string
-  sizeId: string
-  currentStock: number
-  onAdjust: (variantId: string, sizeId: string, newQuantity: number, reason: string) => void
-}) {
-  const [newQuantity, setNewQuantity] = useState(currentStock)
-  const [reason, setReason] = useState('')
-
-  if (!isOpen) return null
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Ajuster le Stock</h3>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Stock actuel: {currentStock}
-            </label>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Nouvelle quantité
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={newQuantity}
-              onChange={(e) => setNewQuantity(parseInt(e.target.value) || 0)}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Raison
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              rows={3}
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-            >
-              Annuler
-            </button>
-            <button
-              onClick={() => onAdjust(variantId, sizeId, newQuantity, reason)}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-            >
-              Ajuster
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
   )
 }
