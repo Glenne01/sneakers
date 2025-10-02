@@ -42,23 +42,42 @@ export default function ProductDetailPage() {
   useEffect(() => {
     const loadProduct = async () => {
       try {
-        const productData = await getProductBySlug(slug)
-        console.log('🎯 Produit récupéré:', productData)
+        console.log('🔄 Chargement du produit depuis l\'API...')
+
+        // Charger le produit via l'API
+        const response = await fetch(`/api/products/${slug}`, {
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+
+        if (!result.success || !result.data) {
+          throw new Error(result.error || 'Produit non trouvé')
+        }
+
+        const productData = result.data
+        console.log('✅ Produit récupéré:', productData)
         setProduct(productData)
 
         if (productData) {
-          console.log('✅ ProductData existe, ID:', productData.id)
-          // Charger les tailles et le stock depuis Supabase
           console.log('🔄 Chargement du stock pour le produit ID:', productData.id)
-          const response = await fetch('/api/product-sizes/' + productData.id)
-          console.log('📡 Réponse API stock:', response.status, response.statusText)
+          const stockResponse = await fetch(`/api/product-sizes/${productData.id}`, {
+            cache: 'no-store'
+          })
 
-          if (response.ok) {
-            const stockData = await response.json()
+          if (stockResponse.ok) {
+            const stockData = await stockResponse.json()
             console.log('✅ Données de stock reçues:', stockData)
             setSizes(stockData)
           } else {
-            console.error('❌ Erreur API stock:', response.status, await response.text())
+            console.error('❌ Erreur API stock:', stockResponse.status, await stockResponse.text())
           }
         }
       } catch (error) {
