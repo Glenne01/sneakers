@@ -391,7 +391,7 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-black/10" />
                   
                   <Image
-                    src="/images/imgfemme.jpg"
+                    src="/images/homme.jpg"
                     alt="Sneakers Femme"
                     fill
                     className="object-cover object-center"
