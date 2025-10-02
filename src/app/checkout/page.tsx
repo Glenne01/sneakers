@@ -44,8 +44,8 @@ export default function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(true) // Toujours true pour éviter le blocage
+  const [checkingAuth, setCheckingAuth] = useState(false) // Pas de vérification bloquante
   
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     firstName: '',
@@ -68,62 +68,34 @@ export default function CheckoutPage() {
     cardholderName: ''
   })
 
+  // Vérification d'authentification optionnelle en arrière-plan
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('🔐 Vérification de l\'authentification...')
+        console.log('🔐 Vérification optionnelle de l\'authentification...')
+        const { data: { session } } = await supabase.auth.getSession()
 
-        // Timeout de 5 secondes pour éviter le blocage
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout')), 5000)
-        )
-
-        const authPromise = supabase.auth.getSession()
-
-        const { data: { session } } = await Promise.race([
-          authPromise,
-          timeoutPromise
-        ]) as any
-
-        console.log('✅ Session récupérée:', session ? 'Connecté' : 'Non connecté')
-
-        if (!session) {
-          toast.error('Vous devez être connecté pour passer commande')
-          router.push('/compte')
-          return
+        if (session) {
+          console.log('✅ Utilisateur connecté')
+          setIsAuthenticated(true)
+        } else {
+          console.log('ℹ️ Utilisateur non connecté - checkout invité autorisé')
         }
-
-        setIsAuthenticated(true)
       } catch (error) {
-        console.error('❌ Erreur vérification auth:', error)
-        // En cas d'erreur ou timeout, on redirige vers la page compte
-        toast.error('Erreur d\'authentification')
-        router.push('/compte')
-      } finally {
-        console.log('🏁 Fin de la vérification auth')
-        setCheckingAuth(false)
+        console.error('⚠️ Erreur vérification auth (non bloquante):', error)
+        // On continue quand même le checkout
       }
     }
 
+    // Vérification non bloquante en arrière-plan
     checkAuth()
-  }, [router])
+  }, [])
 
   const total = getTotal()
   const shipping = total > 100 ? 0 : 9.99
   const finalTotal = total + shipping
 
-  if (checkingAuth) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500"></div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
-  }
-
+  // Pas de vérification bloquante - on affiche directement le checkout
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
