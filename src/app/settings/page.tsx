@@ -122,30 +122,19 @@ export default function SettingsPage() {
     try {
       console.log('🔐 Vérification de l\'authentification...')
 
-      // Timeout de 15 secondes pour l'auth
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => {
-          console.log('⏱️ Timeout auth')
-          reject(new Error('Timeout'))
-        }, 15000)
-      )
-
-      const authPromise = supabase.auth.getSession()
-
-      const { data: { session }, error } = await Promise.race([
-        authPromise,
-        timeoutPromise
-      ]) as any
+      // Essayer de récupérer la session, mais ne pas bloquer
+      const { data: { session }, error } = await supabase.auth.getSession()
 
       if (error) {
         console.error('❌ Erreur session:', error)
-        toast.error('Erreur d\'authentification')
-        router.push('/compte')
+        setLoading(false)
+        // Ne pas rediriger, juste afficher un message
         return
       }
 
       if (!session) {
-        console.log('❌ Pas de session')
+        console.log('❌ Pas de session - redirection')
+        setLoading(false)
         router.push('/compte')
         return
       }
@@ -155,8 +144,8 @@ export default function SettingsPage() {
       await loadUserData(session.user.id)
     } catch (error) {
       console.error('❌ Erreur d\'authentification:', error)
-      toast.error('Délai d\'authentification dépassé')
-      router.push('/compte')
+      setLoading(false)
+      // En cas d'erreur, on affiche juste la page sans données
     }
   }
 
