@@ -58,18 +58,29 @@ export default function SneakersPage({
   }, [params])
 
   useEffect(() => {
-    // Charger les produits depuis Supabase
+    // Charger les produits depuis l'API
     const loadProducts = async () => {
       try {
-        console.log('🔄 Chargement des produits depuis Supabase...')
+        console.log('🔄 Chargement des produits depuis l\'API...')
         console.log('Genre sélectionné:', currentGender)
-        const fetchedProducts = await getProducts({
-          gender: currentGender === 'all' ? undefined : currentGender
+
+        const response = await fetch(`/api/products?gender=${currentGender}`, {
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
         })
-        console.log('✅ Produits chargés:', fetchedProducts.length, 'produits')
-        setAllProducts(fetchedProducts)
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('✅ Produits chargés:', result.count, 'produits')
+        setAllProducts(result.data || [])
       } catch (error) {
         console.error('❌ Erreur lors du chargement des produits:', error)
+        setAllProducts([])
       } finally {
         setLoading(false)
       }
