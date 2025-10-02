@@ -44,8 +44,8 @@ export default function CheckoutPage() {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [checkingAuth, setCheckingAuth] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(true)
+  const [checkingAuth, setCheckingAuth] = useState(false)
   
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     firstName: '',
@@ -68,64 +68,16 @@ export default function CheckoutPage() {
     cardholderName: ''
   })
 
+  // Pas de vérification d'authentification - checkout invité autorisé
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        console.log('🔐 Vérification de l\'authentification...')
-
-        // Timeout très court de 2 secondes
-        const timeoutId = setTimeout(() => {
-          console.log('⏱️ Timeout - redirection vers /compte')
-          setCheckingAuth(false)
-          toast.error('Vous devez être connecté pour commander')
-          router.push('/compte')
-        }, 2000)
-
-        const { data: { session } } = await supabase.auth.getSession()
-
-        // Annuler le timeout si on a une réponse
-        clearTimeout(timeoutId)
-
-        if (!session) {
-          console.log('❌ Non connecté - redirection vers /compte')
-          toast.error('Vous devez être connecté pour passer commande')
-          router.push('/compte')
-          return
-        }
-
-        console.log('✅ Utilisateur connecté')
-        setIsAuthenticated(true)
-        setCheckingAuth(false)
-      } catch (error) {
-        console.error('❌ Erreur vérification auth:', error)
-        setCheckingAuth(false)
-        toast.error('Erreur d\'authentification')
-        router.push('/compte')
-      }
-    }
-
-    checkAuth()
-  }, [router])
+    console.log('ℹ️ Checkout invité activé - aucune vérification auth requise')
+  }, [])
 
   const total = getTotal()
   const shipping = total > 100 ? 0 : 9.99
   const finalTotal = total + shipping
 
-  if (checkingAuth) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Vérification de votre connexion...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
-  }
-
+  // Pas de vérification bloquante - affichage direct
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
