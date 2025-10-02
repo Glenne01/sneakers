@@ -40,6 +40,7 @@ export default function VendorOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
+  // Charger les commandes depuis la base de données
   useEffect(() => {
     loadOrders()
   }, [])
@@ -108,7 +109,7 @@ export default function VendorOrdersPage() {
       ]
 
       setOrders(testOrders)
-      console.log('3 commandes vendeur de test chargées')
+      console.log('3 commandes admin de test chargées')
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error)
       toast.error('Erreur lors du chargement des commandes')
@@ -396,7 +397,7 @@ export default function VendorOrdersPage() {
                     Détails de la commande {selectedOrder.orderNumber}
                   </h2>
                 </div>
-
+                
                 <div className="p-6 space-y-6">
                   {/* Customer Info */}
                   <div>
