@@ -43,21 +43,34 @@ export default function HomePage() {
   
   useEffect(() => {
     setIsVisible(true)
-    
-    // Charger seulement les produits populaires
+
+    // Charger seulement les produits populaires via l'API
     const loadProducts = async () => {
       try {
-        console.log('🔄 Chargement des produits populaires...')
-        const fetchedProducts = await getProducts({ limit: 10, sortBy: 'newest' })
-        console.log('✅ Produits populaires chargés:', fetchedProducts)
-        setProducts(fetchedProducts)
+        console.log('🔄 Chargement des produits populaires depuis l\'API...')
+
+        const response = await fetch('/api/products?gender=all', {
+          cache: 'no-store',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        console.log('✅ Produits populaires chargés:', result.count, 'produits')
+        setProducts(result.data || [])
       } catch (error) {
         console.error('❌ Erreur lors du chargement des produits:', error)
+        setProducts([])
       } finally {
         setLoading(false)
       }
     }
-    
+
     loadProducts()
   }, [])
 
