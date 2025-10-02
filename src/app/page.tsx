@@ -432,6 +432,7 @@ export default function HomePage() {
                     src="/images/enfant.jpg"
                     alt="Sneakers Enfants"
                     fill
+                    priority
                     className="object-cover object-center"
                   />
 
