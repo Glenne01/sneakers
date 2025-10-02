@@ -129,14 +129,40 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Commande créée:', order.id)
 
-    // Créer les items de la commande
-    const orderItems = items.map((item: any) => ({
-      order_id: order.id,
-      variant_id: item.variantId,
-      size_id: item.sizeId,
-      quantity: item.quantity,
-      price: item.price.toString()
-    }))
+    // Créer les items de la commande - charger les infos produits
+    const orderItemsPromises = items.map(async (item: any) => {
+      // Récupérer les infos du variant et du produit
+      const { data: variantData } = await supabase
+        .from('product_variants')
+        .select('color, sku, products(name)')
+        .eq('id', item.variantId)
+        .single()
+
+      // Récupérer les infos de la taille
+      const { data: sizeData } = await supabase
+        .from('sizes')
+        .select('size_value')
+        .eq('id', item.sizeId)
+        .single()
+
+      const unitPrice = parseFloat(item.price)
+      const lineTotal = unitPrice * item.quantity
+
+      return {
+        order_id: order.id,
+        variant_id: item.variantId,
+        size_id: item.sizeId,
+        product_name: variantData?.products?.name || 'Produit',
+        variant_color: variantData?.color || '',
+        variant_sku: variantData?.sku || '',
+        size_value: sizeData?.size_value || '',
+        unit_price: unitPrice,
+        quantity: item.quantity,
+        line_total: lineTotal
+      }
+    })
+
+    const orderItems = await Promise.all(orderItemsPromises)
 
     const { error: itemsError } = await supabase
       .from('order_items')
