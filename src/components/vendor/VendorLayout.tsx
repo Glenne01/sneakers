@@ -9,10 +9,8 @@ import {
   HomeIcon,
   ShoppingBagIcon,
   CubeIcon,
-  ChartBarIcon,
   ArrowRightOnRectangleIcon
 } from '@heroicons/react/24/outline'
-import { Button } from '@/components/ui/Button'
 
 interface VendorLayoutProps {
   children: React.ReactNode
@@ -31,9 +29,7 @@ const VendorLayout = ({ children }: VendorLayoutProps) => {
   const navigation: NavItem[] = [
     { name: 'Dashboard', href: '/vendeur', icon: HomeIcon },
     { name: 'Commandes', href: '/vendeur/commandes', icon: ShoppingBagIcon },
-    { name: 'Produits', href: '/vendeur/produits', icon: CubeIcon },
-    { name: 'Stocks', href: '/vendeur/stocks', icon: CubeIcon },
-    { name: 'Analytics', href: '/vendeur/analytics', icon: ChartBarIcon }
+    { name: 'Stocks', href: '/vendeur/stocks', icon: CubeIcon }
   ]
 
   const handleLogout = () => {

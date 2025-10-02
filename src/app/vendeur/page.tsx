@@ -152,7 +152,7 @@ export default function VendorDashboard() {
         {/* Actions rapides */}
         <div className="bg-white rounded-xl shadow-soft p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Link
               href="/vendeur/commandes"
               className="flex items-center p-4 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
@@ -165,24 +165,13 @@ export default function VendorDashboard() {
             </Link>
 
             <Link
-              href="/vendeur/produits"
+              href="/vendeur/stocks"
               className="flex items-center p-4 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors"
             >
               <CubeIcon className="h-8 w-8 text-orange-600 mr-3" />
               <div>
-                <h3 className="font-medium text-gray-900">Gérer les produits</h3>
-                <p className="text-sm text-gray-500">Ajouter ou modifier des produits</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/vendeur/analytics"
-              className="flex items-center p-4 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
-            >
-              <ArrowTrendingUpIcon className="h-8 w-8 text-purple-600 mr-3" />
-              <div>
-                <h3 className="font-medium text-gray-900">Voir les analytics</h3>
-                <p className="text-sm text-gray-500">Analyser les performances</p>
+                <h3 className="font-medium text-gray-900">Gérer les stocks</h3>
+                <p className="text-sm text-gray-500">Gérer les stocks des produits</p>
               </div>
             </Link>
           </div>
@@ -192,7 +181,7 @@ export default function VendorDashboard() {
         <div className="bg-gradient-to-r from-orange-500 to-red-500 rounded-xl shadow-soft p-6 text-white">
           <h2 className="text-xl font-bold mb-2">Bienvenue dans votre espace vendeur !</h2>
           <p className="text-orange-100">
-            Vous avez accès aux outils essentiels pour gérer vos ventes : commandes, produits et analytics.
+            Vous avez accès aux outils essentiels pour gérer vos commandes et stocks.
           </p>
         </div>
       </div>
