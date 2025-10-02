@@ -122,30 +122,39 @@ export default function SettingsPage() {
     try {
       console.log('🔐 Vérification de l\'authentification...')
 
-      // Essayer de récupérer la session, mais ne pas bloquer
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Récupérer la session depuis localStorage directement
+      const storedSession = localStorage.getItem('sb-pnkomglhvrwaddshwjff-auth-token')
 
-      if (error) {
-        console.error('❌ Erreur session:', error)
-        setLoading(false)
-        // Ne pas rediriger, juste afficher un message
-        return
-      }
-
-      if (!session) {
-        console.log('❌ Pas de session - redirection')
+      if (!storedSession) {
+        console.log('❌ Pas de session dans localStorage')
         setLoading(false)
         router.push('/compte')
         return
       }
 
-      console.log('✅ Session trouvée')
-      setAuthUser(session.user)
-      await loadUserData(session.user.id)
+      try {
+        const sessionData = JSON.parse(storedSession)
+        const user = sessionData?.user || sessionData?.currentSession?.user
+
+        if (!user || !user.id) {
+          console.log('❌ Session invalide')
+          setLoading(false)
+          router.push('/compte')
+          return
+        }
+
+        console.log('✅ Session trouvée dans localStorage')
+        setAuthUser(user)
+        await loadUserData(user.id)
+      } catch (parseError) {
+        console.error('❌ Erreur parsing session:', parseError)
+        setLoading(false)
+        router.push('/compte')
+      }
     } catch (error) {
       console.error('❌ Erreur d\'authentification:', error)
       setLoading(false)
-      // En cas d'erreur, on affiche juste la page sans données
+      router.push('/compte')
     }
   }
 
