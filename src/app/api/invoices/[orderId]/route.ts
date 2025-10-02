@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/database'
-import { renderToBuffer } from '@react-pdf/renderer'
-import { InvoiceTemplate } from '@/lib/pdf/InvoiceTemplate'
-import { createElement } from 'react'
+import PDFDocument from 'pdfkit'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -43,41 +41,162 @@ export async function GET(
 
     console.log('✅ Commande trouvée')
 
-    // Calculer les totaux
-    const items = order.order_items.map((item: any) => ({
-      productName: item.product_name,
-      variantColor: item.variant_color,
-      sizeValue: item.size_value,
-      quantity: item.quantity,
-      unitPrice: parseFloat(item.unit_price),
-      lineTotal: parseFloat(item.line_total),
-    }))
+    // Créer le PDF
+    const doc = new PDFDocument({ margin: 50 })
+    const chunks: Buffer[] = []
 
-    const subtotal = items.reduce((sum: number, item: any) => sum + item.lineTotal, 0)
+    doc.on('data', (chunk) => chunks.push(chunk))
+
+    // Header
+    doc
+      .fontSize(24)
+      .fillColor('#ff6b35')
+      .text('SNEAKERS SHOP', 50, 50)
+      .fontSize(10)
+      .fillColor('#666666')
+      .text('Email: contact@sneakers-shop.com', 50, 80)
+      .text('Téléphone: +33 1 23 45 67 89', 50, 95)
+
+    // Ligne de séparation
+    doc
+      .moveTo(50, 115)
+      .lineTo(550, 115)
+      .strokeColor('#ff6b35')
+      .lineWidth(2)
+      .stroke()
+
+    // Titre FACTURE
+    doc
+      .fontSize(20)
+      .fillColor('#000000')
+      .text('FACTURE', 50, 135)
+
+    // Informations facture
+    doc
+      .fontSize(10)
+      .fillColor('#666666')
+      .text('Numéro de facture', 50, 170)
+      .fontSize(11)
+      .fillColor('#000000')
+      .text(order.order_number, 50, 185)
+
+    doc
+      .fontSize(10)
+      .fillColor('#666666')
+      .text('Date', 300, 170)
+      .fontSize(11)
+      .fillColor('#000000')
+      .text(new Date(order.created_at).toLocaleDateString('fr-FR'), 300, 185)
+
+    // Informations client
+    doc
+      .fontSize(12)
+      .fillColor('#333333')
+      .text('Facturé à', 50, 230)
+      .fontSize(11)
+      .fillColor('#000000')
+      .text(`${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(), 50, 250)
+      .text(order.users?.email || '', 50, 265)
+      .text(order.shipping_address || '', 50, 280)
+
+    // Tableau des items
+    const tableTop = 330
+    doc
+      .fontSize(12)
+      .fillColor('#333333')
+      .text('Détails de la commande', 50, tableTop)
+
+    // En-têtes du tableau
+    const headerY = tableTop + 25
+    doc
+      .fontSize(10)
+      .fillColor('#000000')
+      .rect(50, headerY, 500, 25)
+      .fillAndStroke('#f5f5f5', '#dddddd')
+      .fillColor('#000000')
+      .text('Produit', 55, headerY + 8)
+      .text('Couleur', 250, headerY + 8)
+      .text('Taille', 340, headerY + 8)
+      .text('Qté', 410, headerY + 8)
+      .text('Total', 480, headerY + 8, { align: 'right', width: 60 })
+
+    // Items
+    let currentY = headerY + 30
+    let subtotal = 0
+
+    order.order_items.forEach((item: any) => {
+      const lineTotal = parseFloat(item.line_total)
+      subtotal += lineTotal
+
+      doc
+        .fontSize(10)
+        .fillColor('#000000')
+        .text(item.product_name, 55, currentY, { width: 180 })
+        .text(item.variant_color, 250, currentY, { width: 80 })
+        .text(item.size_value, 340, currentY)
+        .text(item.quantity.toString(), 410, currentY)
+        .text(`${lineTotal.toFixed(2)} €`, 480, currentY, { align: 'right', width: 60 })
+
+      currentY += 25
+    })
+
+    // Ligne de séparation
+    doc
+      .moveTo(50, currentY + 10)
+      .lineTo(550, currentY + 10)
+      .strokeColor('#eeeeee')
+      .lineWidth(1)
+      .stroke()
+
+    // Totaux
+    const totalsY = currentY + 30
     const total = parseFloat(order.total_amount)
     const shipping = total - subtotal
 
-    // Préparer les données de la facture
-    const invoiceData = {
-      orderNumber: order.order_number,
-      orderDate: new Date(order.created_at).toLocaleDateString('fr-FR'),
-      customer: {
-        name: `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(),
-        email: order.users?.email || '',
-        address: order.shipping_address || '',
-      },
-      items,
-      subtotal,
-      shipping,
-      total,
-    }
+    doc
+      .fontSize(10)
+      .fillColor('#000000')
+      .text('Sous-total :', 380, totalsY, { align: 'right', width: 100 })
+      .text(`${subtotal.toFixed(2)} €`, 480, totalsY, { align: 'right', width: 60 })
 
-    console.log('📄 Génération du PDF...')
+    doc
+      .text('Livraison :', 380, totalsY + 20, { align: 'right', width: 100 })
+      .text(`${shipping.toFixed(2)} €`, 480, totalsY + 20, { align: 'right', width: 60 })
 
-    // Générer le PDF
-    const pdfBuffer = await renderToBuffer(
-      createElement(InvoiceTemplate, { data: invoiceData })
-    )
+    // Ligne pour le total
+    doc
+      .moveTo(380, totalsY + 45)
+      .lineTo(550, totalsY + 45)
+      .strokeColor('#333333')
+      .lineWidth(2)
+      .stroke()
+
+    doc
+      .fontSize(11)
+      .fillColor('#000000')
+      .text('TOTAL TTC :', 380, totalsY + 55, { align: 'right', width: 100 })
+      .text(`${total.toFixed(2)} €`, 480, totalsY + 55, { align: 'right', width: 60 })
+
+    // Footer
+    doc
+      .fontSize(9)
+      .fillColor('#999999')
+      .text(
+        'Merci de votre commande ! Pour toute question, contactez-nous à contact@sneakers-shop.com',
+        50,
+        750,
+        { align: 'center', width: 500 }
+      )
+
+    // Finaliser le PDF
+    doc.end()
+
+    // Attendre que le PDF soit généré
+    const pdfBuffer = await new Promise<Buffer>((resolve) => {
+      doc.on('end', () => {
+        resolve(Buffer.concat(chunks))
+      })
+    })
 
     console.log('✅ PDF généré')
 
