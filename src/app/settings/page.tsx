@@ -161,25 +161,49 @@ export default function SettingsPage() {
   const loadUserData = async (authUserId: string) => {
     try {
       setLoading(true)
+      console.log('📥 Chargement des données utilisateur...')
 
-      // Charger le profil utilisateur via API
-      const profileResponse = await fetch(`/api/user/profile?authUserId=${authUserId}`, {
-        cache: 'no-store'
-      })
+      // Fonction helper pour timeout
+      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+        try {
+          const response = await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId)
+          return response
+        } catch (err) {
+          clearTimeout(timeoutId)
+          throw err
+        }
+      }
+
+      // Charger le profil utilisateur via API avec timeout
+      console.log('🔄 Appel API profil...')
+      const profileResponse = await fetchWithTimeout(`/api/user/profile?authUserId=${authUserId}`, 5000)
 
       if (!profileResponse.ok) {
-        console.error('Erreur lors du chargement du profil')
+        console.error('❌ Erreur profil, status:', profileResponse.status)
+        setLoading(false)
         router.push('/compte')
         return
       }
 
+      console.log('🔄 Parsing JSON profil...')
       const profileResult = await profileResponse.json()
+
       if (!profileResult.success || !profileResult.data) {
+        console.error('❌ Données profil invalides')
+        setLoading(false)
         router.push('/compte')
         return
       }
 
       const userData = profileResult.data
+      console.log('✅ Profil chargé:', userData.first_name, userData.last_name)
 
       setUserProfile(userData)
       reset({
@@ -190,32 +214,32 @@ export default function SettingsPage() {
         date_of_birth: userData.date_of_birth || ''
       })
 
-      // Charger les commandes via API
-      const ordersResponse = await fetch(`/api/orders?userId=${userData.id}`, {
-        cache: 'no-store'
-      })
+      // Charger les commandes via API avec timeout
+      try {
+        console.log('🔄 Appel API commandes...')
+        const ordersResponse = await fetchWithTimeout(`/api/orders?userId=${userData.id}`, 5000)
 
-      if (ordersResponse.ok) {
-        const ordersResult = await ordersResponse.json()
-        if (ordersResult.success) {
-          setOrders(ordersResult.data || [])
+        if (ordersResponse.ok) {
+          console.log('🔄 Parsing JSON commandes...')
+          const ordersResult = await ordersResponse.json()
+          if (ordersResult.success) {
+            console.log('✅ Commandes chargées:', ordersResult.data.length, 'commandes')
+            setOrders(ordersResult.data || [])
+          }
+        } else {
+          console.log('⚠️ Erreur API commandes, status:', ordersResponse.status)
         }
+      } catch (err) {
+        console.error('⚠️ Erreur commandes (non bloquante):', err)
       }
 
-      // Charger les adresses (appel Supabase direct car pas d'API)
-      const { data: addressesData, error: addressesError } = await supabase
-        .from('addresses')
-        .select('*')
-        .eq('user_id', userData.id)
-        .order('created_at', { ascending: false })
+      // Adresses vides pour l'instant (pas d'API)
+      setAddresses([])
 
-      if (!addressesError) {
-        setAddresses(addressesData || [])
-      }
-
+      console.log('✅ Fin du chargement, setLoading(false)')
+      setLoading(false)
     } catch (error) {
-      console.error('Erreur lors du chargement des données:', error)
-    } finally {
+      console.error('❌ Erreur chargement:', error)
       setLoading(false)
     }
   }
@@ -258,39 +282,8 @@ export default function SettingsPage() {
     phone: string
     date_of_birth: string
   }) => {
-    try {
-      if (!userProfile) return
-
-      const { error } = await supabase
-        .from('users')
-        .update({
-          first_name: data.first_name,
-          last_name: data.last_name,
-          phone: data.phone,
-          date_of_birth: data.date_of_birth
-        })
-        .eq('id', userProfile.id)
-
-      if (error) {
-        console.error('Erreur de mise à jour:', error)
-        toast.error('Erreur lors de la mise à jour du profil')
-        return
-      }
-
-      // Mettre à jour le profil local
-      setUserProfile(prev => prev ? {
-        ...prev,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone: data.phone,
-        date_of_birth: data.date_of_birth
-      } : null)
-
-      toast.success('Profil mis à jour avec succès !')
-    } catch (error) {
-      console.error('Erreur:', error)
-      toast.error('Erreur lors de la mise à jour du profil')
-    }
+    toast('Fonctionnalité de mise à jour temporairement désactivée')
+    // TODO: Créer une API pour la mise à jour du profil
   }
 
   const handleDeleteAddress = async (id: string) => {
