@@ -6,7 +6,8 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   EyeIcon,
-  PencilIcon
+  PencilIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline'
 import VendorLayout from '@/components/vendor/VendorLayout'
 import { ORDER_STATUSES } from '@/types/admin'
@@ -107,7 +108,7 @@ export default function VendorOrdersPage() {
       ]
 
       setOrders(testOrders)
-      console.log('3 commandes de test chargées')
+      console.log('3 commandes vendeur de test chargées')
     } catch (error) {
       console.error('Erreur lors du chargement des commandes:', error)
       toast.error('Erreur lors du chargement des commandes')
@@ -157,6 +158,45 @@ export default function VendorOrdersPage() {
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error)
       toast.error('Erreur lors de la mise à jour du statut')
+    }
+  }
+
+  const deleteOrder = async (orderId: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cette commande ? Cette action est irréversible.')) {
+      try {
+        // Supprimer d'abord les articles de la commande
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', orderId)
+
+        if (itemsError) throw itemsError
+
+        // Supprimer les paiements
+        const { error: paymentsError } = await supabase
+          .from('payments')
+          .delete()
+          .eq('order_id', orderId)
+
+        if (paymentsError) throw paymentsError
+
+        // Supprimer la commande
+        const { error: orderError } = await supabase
+          .from('orders')
+          .delete()
+          .eq('id', orderId)
+
+        if (orderError) throw orderError
+
+        setOrders(prev => prev.filter(order => order.id !== orderId))
+        if (selectedOrder?.id === orderId) {
+          setSelectedOrder(null)
+        }
+        toast.success('Commande supprimée avec succès')
+      } catch (error) {
+        console.error('Erreur lors de la suppression:', error)
+        toast.error('Erreur lors de la suppression de la commande')
+      }
     }
   }
 
@@ -323,6 +363,13 @@ export default function VendorOrdersPage() {
                           <button className="text-gray-600 hover:text-gray-900 inline-flex items-center">
                             <PencilIcon className="h-4 w-4 mr-1" />
                             Modifier
+                          </button>
+                          <button
+                            onClick={() => deleteOrder(order.id)}
+                            className="text-red-600 hover:text-red-900 inline-flex items-center"
+                          >
+                            <TrashIcon className="h-4 w-4 mr-1" />
+                            Supprimer
                           </button>
                         </td>
                       </motion.tr>
