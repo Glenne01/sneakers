@@ -81,21 +81,26 @@ export default function CommandesPage() {
         return
       }
 
-      // Charger le profil utilisateur
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', session.user.id)
-        .single()
+      // Charger le profil utilisateur via l'API
+      const profileResponse = await fetch(`/api/user/profile?authUserId=${session.user.id}`, {
+        cache: 'no-store'
+      })
 
-      if (userError) {
-        console.error('Erreur profil utilisateur:', userError)
+      if (!profileResponse.ok) {
+        console.error('Erreur profil utilisateur')
         router.push('/compte')
         return
       }
 
-      setUserProfile(userData)
-      await loadOrders(userData.id)
+      const profileResult = await profileResponse.json()
+
+      if (!profileResult.success || !profileResult.data) {
+        router.push('/compte')
+        return
+      }
+
+      setUserProfile(profileResult.data)
+      await loadOrders(profileResult.data.id)
 
     } catch (error) {
       console.error('Erreur d\'authentification:', error)
@@ -108,30 +113,23 @@ export default function CommandesPage() {
       setLoading(true)
       console.log('🔍 Chargement des commandes pour userId:', userId)
 
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (
-            *,
-            product_variants (
-              *,
-              products (name)
-            ),
-            sizes (size)
-          )
-        `)
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
+      // Charger les commandes via l'API
+      const ordersResponse = await fetch(`/api/orders?userId=${userId}`, {
+        cache: 'no-store'
+      })
 
-      if (ordersError) {
-        console.error('❌ Erreur Supabase:', ordersError)
-        toast.error(`Erreur: ${ordersError.message}`)
-        return
+      if (!ordersResponse.ok) {
+        throw new Error('Erreur lors du chargement des commandes')
       }
 
-      console.log('✅ Commandes chargées:', ordersData)
-      setOrders(ordersData || [])
+      const ordersResult = await ordersResponse.json()
+
+      if (!ordersResult.success) {
+        throw new Error(ordersResult.error || 'Erreur inconnue')
+      }
+
+      console.log('✅ Commandes chargées:', ordersResult.data.length)
+      setOrders(ordersResult.data || [])
 
     } catch (error) {
       console.error('❌ Erreur lors du chargement des commandes:', error)
