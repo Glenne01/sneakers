@@ -120,7 +120,17 @@ export default function SettingsPage() {
 
   const checkAuth = async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      // Timeout de 5 secondes pour l'auth
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      )
+
+      const authPromise = supabase.auth.getSession()
+
+      const { data: { session }, error } = await Promise.race([
+        authPromise,
+        timeoutPromise
+      ]) as any
 
       if (error || !session) {
         router.push('/compte')
@@ -139,17 +149,24 @@ export default function SettingsPage() {
     try {
       setLoading(true)
 
-      // Charger le profil utilisateur
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('auth_user_id', authUserId)
-        .single()
+      // Charger le profil utilisateur via API
+      const profileResponse = await fetch(`/api/user/profile?authUserId=${authUserId}`, {
+        cache: 'no-store'
+      })
 
-      if (userError) {
-        console.error('Erreur lors du chargement du profil:', userError)
+      if (!profileResponse.ok) {
+        console.error('Erreur lors du chargement du profil')
+        router.push('/compte')
         return
       }
+
+      const profileResult = await profileResponse.json()
+      if (!profileResult.success || !profileResult.data) {
+        router.push('/compte')
+        return
+      }
+
+      const userData = profileResult.data
 
       setUserProfile(userData)
       reset({
@@ -160,40 +177,26 @@ export default function SettingsPage() {
         date_of_birth: userData.date_of_birth || ''
       })
 
-      // Charger les commandes
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          users!orders_user_id_fkey (first_name, last_name, email),
-          order_items (
-            *,
-            product_variants (
-              *,
-              products (name, brand, images)
-            ),
-            sizes (size)
-          )
-        `)
-        .eq('user_id', userData.id)
-        .order('created_at', { ascending: false })
+      // Charger les commandes via API
+      const ordersResponse = await fetch(`/api/orders?userId=${userData.id}`, {
+        cache: 'no-store'
+      })
 
-      if (ordersError) {
-        console.error('Erreur lors du chargement des commandes:', ordersError)
-      } else {
-        setOrders(ordersData || [])
+      if (ordersResponse.ok) {
+        const ordersResult = await ordersResponse.json()
+        if (ordersResult.success) {
+          setOrders(ordersResult.data || [])
+        }
       }
 
-      // Charger les adresses
+      // Charger les adresses (appel Supabase direct car pas d'API)
       const { data: addressesData, error: addressesError } = await supabase
         .from('addresses')
         .select('*')
         .eq('user_id', userData.id)
         .order('created_at', { ascending: false })
 
-      if (addressesError) {
-        console.error('Erreur lors du chargement des adresses:', addressesError)
-      } else {
+      if (!addressesError) {
         setAddresses(addressesData || [])
       }
 
