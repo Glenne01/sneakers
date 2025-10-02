@@ -71,7 +71,21 @@ export default function CheckoutPage() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
+        console.log('🔐 Vérification de l\'authentification...')
+
+        // Timeout de 5 secondes pour éviter le blocage
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout')), 5000)
+        )
+
+        const authPromise = supabase.auth.getSession()
+
+        const { data: { session } } = await Promise.race([
+          authPromise,
+          timeoutPromise
+        ]) as any
+
+        console.log('✅ Session récupérée:', session ? 'Connecté' : 'Non connecté')
 
         if (!session) {
           toast.error('Vous devez être connecté pour passer commande')
@@ -81,9 +95,12 @@ export default function CheckoutPage() {
 
         setIsAuthenticated(true)
       } catch (error) {
-        console.error('Erreur vérification auth:', error)
+        console.error('❌ Erreur vérification auth:', error)
+        // En cas d'erreur ou timeout, on redirige vers la page compte
+        toast.error('Erreur d\'authentification')
         router.push('/compte')
       } finally {
+        console.log('🏁 Fin de la vérification auth')
         setCheckingAuth(false)
       }
     }
