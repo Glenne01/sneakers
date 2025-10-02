@@ -74,20 +74,52 @@ export default function CommandesPage() {
 
   const checkAuthAndLoadData = async () => {
     try {
-      const { data: { session }, error } = await supabase.auth.getSession()
+      console.log('🔐 Vérification auth...')
 
-      if (error || !session) {
+      // Récupérer la session depuis localStorage directement
+      const storedSession = localStorage.getItem('sb-pnkomglhvrwaddshwjff-auth-token')
+
+      if (!storedSession) {
+        console.log('❌ Pas de session')
         router.push('/compte')
         return
       }
 
-      // Charger le profil utilisateur via l'API
-      const profileResponse = await fetch(`/api/user/profile?authUserId=${session.user.id}`, {
-        cache: 'no-store'
-      })
+      const sessionData = JSON.parse(storedSession)
+      const user = sessionData?.user || sessionData?.currentSession?.user
+
+      if (!user || !user.id) {
+        console.log('❌ Session invalide')
+        router.push('/compte')
+        return
+      }
+
+      console.log('✅ Session trouvée')
+
+      // Fonction helper pour timeout
+      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+        try {
+          const response = await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId)
+          return response
+        } catch (err) {
+          clearTimeout(timeoutId)
+          throw err
+        }
+      }
+
+      // Charger le profil utilisateur via l'API avec timeout
+      console.log('🔄 Chargement profil...')
+      const profileResponse = await fetchWithTimeout(`/api/user/profile?authUserId=${user.id}`, 5000)
 
       if (!profileResponse.ok) {
-        console.error('Erreur profil utilisateur')
+        console.error('❌ Erreur profil utilisateur')
         router.push('/compte')
         return
       }
@@ -95,16 +127,19 @@ export default function CommandesPage() {
       const profileResult = await profileResponse.json()
 
       if (!profileResult.success || !profileResult.data) {
+        console.log('❌ Données profil invalides')
         router.push('/compte')
         return
       }
 
+      console.log('✅ Profil chargé')
       setUserProfile(profileResult.data)
       await loadOrders(profileResult.data.id)
 
     } catch (error) {
-      console.error('Erreur d\'authentification:', error)
-      router.push('/compte')
+      console.error('❌ Erreur d\'authentification:', error)
+      toast.error('Erreur lors du chargement des commandes')
+      setLoading(false)
     }
   }
 
@@ -113,10 +148,26 @@ export default function CommandesPage() {
       setLoading(true)
       console.log('🔍 Chargement des commandes pour userId:', userId)
 
-      // Charger les commandes via l'API
-      const ordersResponse = await fetch(`/api/orders?userId=${userId}`, {
-        cache: 'no-store'
-      })
+      // Fonction helper pour timeout
+      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+        try {
+          const response = await fetch(url, {
+            cache: 'no-store',
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId)
+          return response
+        } catch (err) {
+          clearTimeout(timeoutId)
+          throw err
+        }
+      }
+
+      // Charger les commandes via l'API avec timeout
+      const ordersResponse = await fetchWithTimeout(`/api/orders?userId=${userId}`, 5000)
 
       if (!ordersResponse.ok) {
         throw new Error('Erreur lors du chargement des commandes')
