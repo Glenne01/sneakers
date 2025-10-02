@@ -193,6 +193,58 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Items créés:', orderItems.length)
 
+    // Décrémenter les stocks
+    console.log('📦 Décrémentation des stocks...')
+    for (const item of items) {
+      try {
+        // Récupérer le stock actuel
+        const { data: currentStock } = await supabase
+          .from('product_stock')
+          .select('id, quantity')
+          .eq('variant_id', item.variantId)
+          .eq('size_id', item.sizeId)
+          .single()
+
+        if (currentStock) {
+          const newQuantity = Math.max(0, currentStock.quantity - item.quantity)
+
+          // Mettre à jour le stock
+          const { error: updateError } = await supabase
+            .from('product_stock')
+            .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
+            .eq('id', currentStock.id)
+
+          if (updateError) {
+            console.error('⚠️ Erreur mise à jour stock:', updateError)
+          } else {
+            console.log(`✅ Stock mis à jour: variant ${item.variantId}, size ${item.sizeId}, ${currentStock.quantity} → ${newQuantity}`)
+          }
+
+          // Enregistrer le mouvement de stock
+          await supabase
+            .from('stock_movements')
+            .insert({
+              variant_id: item.variantId,
+              size_id: item.sizeId,
+              movement_type: 'out',
+              quantity_change: -item.quantity,
+              quantity_before: currentStock.quantity,
+              quantity_after: newQuantity,
+              reference_type: 'order',
+              reference_id: order.id,
+              reason: `Commande ${orderNumber}`
+            })
+        } else {
+          console.warn(`⚠️ Stock non trouvé pour variant ${item.variantId}, size ${item.sizeId}`)
+        }
+      } catch (stockError) {
+        console.error('⚠️ Erreur gestion stock (non bloquante):', stockError)
+        // Ne pas bloquer la commande si la mise à jour du stock échoue
+      }
+    }
+
+    console.log('✅ Stocks mis à jour')
+
     // Envoyer l'email de confirmation
     try {
       const orderUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://sneakers-two-sigma.vercel.app'}/commandes`
