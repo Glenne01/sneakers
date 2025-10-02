@@ -8,10 +8,10 @@ export const revalidate = 0
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const orderId = (await params).orderId
+    const orderId = (await params).id
     console.log('🔍 Génération facture pour commande:', orderId)
 
     // Créer le client Supabase
