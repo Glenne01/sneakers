@@ -40,31 +40,57 @@ export default function ComptePage() {
 
   const onLoginSubmit = async (data: LoginForm) => {
     try {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
+      console.log('🔐 Tentative de connexion...')
+
+      // Timeout de 10 secondes pour la connexion
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout de connexion')), 10000)
+      )
+
+      const loginPromise = supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
+
+      const { data: authData, error } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]) as any
 
       if (error) {
         throw new Error(error.message)
       }
 
+      console.log('✅ Connexion réussie')
       toast.success('Connexion réussie !')
+
       // Redirect to settings or home
       window.location.href = '/settings'
     } catch (error: any) {
-      console.error('Login error:', error)
+      console.error('❌ Login error:', error)
       toast.error(error.message || 'Erreur de connexion')
     }
   }
 
   const onRegisterSubmit = async (data: RegisterForm) => {
     try {
+      console.log('📝 Tentative de création de compte...')
+
+      // Timeout de 10 secondes pour l'inscription
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout d\'inscription')), 10000)
+      )
+
       // 1. Créer un utilisateur dans Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const signUpPromise = supabase.auth.signUp({
         email: data.email,
         password: data.password,
       })
+
+      const { data: authData, error: authError } = await Promise.race([
+        signUpPromise,
+        timeoutPromise
+      ]) as any
 
       if (authError) {
         throw new Error(authError.message)
@@ -74,8 +100,10 @@ export default function ComptePage() {
         throw new Error('Erreur lors de la création du compte')
       }
 
+      console.log('✅ Utilisateur auth créé')
+
       // 2. Créer l'enregistrement utilisateur dans la table users
-      const { error: userError } = await supabase
+      const insertPromise = supabase
         .from('users')
         .insert({
           auth_user_id: authData.user.id,
@@ -85,16 +113,22 @@ export default function ComptePage() {
           phone: data.phone,
           role: 'customer',
           is_active: true
-        })
+        } as any)
+
+      const { error: userError } = await Promise.race([
+        insertPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+      ]) as any
 
       if (userError) {
         throw new Error(userError.message)
       }
 
+      console.log('✅ Profil utilisateur créé')
       toast.success('Compte créé avec succès !')
       setIsLogin(true)
     } catch (error: any) {
-      console.error('Registration error:', error)
+      console.error('❌ Registration error:', error)
       toast.error(error.message || 'Erreur lors de la création du compte')
     }
   }
