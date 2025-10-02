@@ -35,6 +35,20 @@ export default function CheckoutSuccessContent() {
     try {
       setSendingEmail(true)
 
+      // Récupérer l'authUserId depuis localStorage
+      let authUserId = null
+      try {
+        const storedSession = localStorage.getItem('sb-pnkomglhvrwaddshwjff-auth-token')
+        if (storedSession) {
+          const sessionData = JSON.parse(storedSession)
+          const user = sessionData?.user || sessionData?.currentSession?.user
+          authUserId = user?.id
+          console.log('👤 Utilisateur connecté:', authUserId)
+        }
+      } catch (e) {
+        console.log('⚠️ Pas d\'utilisateur connecté')
+      }
+
       // Créer la commande dans Supabase
       console.log('📝 Création de la commande...')
       const response = await fetch('/api/orders/create', {
@@ -42,7 +56,10 @@ export default function CheckoutSuccessContent() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ sessionId: session_id })
+        body: JSON.stringify({
+          sessionId: session_id,
+          authUserId: authUserId
+        })
       })
 
       const result = await response.json()

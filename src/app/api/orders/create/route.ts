@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     console.log('🔍 API /api/orders/create appelée')
 
     const body = await request.json()
-    const { sessionId } = body
+    const { sessionId, authUserId } = body
 
     if (!sessionId) {
       return NextResponse.json(
@@ -55,10 +55,25 @@ export async function POST(request: NextRequest) {
     console.log('📦 Items:', items.length)
     console.log('📧 Email:', customerEmail)
 
-    // Récupérer ou créer l'utilisateur
+    // Récupérer l'utilisateur
     let userId: string | null = null
 
-    if (customerEmail) {
+    // Si authUserId est fourni (utilisateur connecté), utiliser celui-ci
+    if (authUserId) {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('id')
+        .eq('auth_user_id', authUserId)
+        .single()
+
+      if (userData) {
+        userId = userData.id
+        console.log('✅ Utilisateur connecté trouvé:', userId)
+      }
+    }
+
+    // Sinon, utiliser l'email du checkout
+    if (!userId && customerEmail) {
       // Chercher l'utilisateur par email
       const { data: existingUser } = await supabase
         .from('users')
@@ -68,7 +83,7 @@ export async function POST(request: NextRequest) {
 
       if (existingUser) {
         userId = existingUser.id
-        console.log('✅ Utilisateur trouvé:', userId)
+        console.log('✅ Utilisateur trouvé par email:', userId)
       } else {
         // Créer un nouvel utilisateur si nécessaire
         const { data: newUser, error: userError } = await supabase
