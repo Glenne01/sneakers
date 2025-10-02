@@ -62,7 +62,7 @@ export default function SneakersPage({
     const loadProducts = async () => {
       try {
         console.log('🔄 Chargement des produits depuis Supabase...')
-        console.log('Genre sélectionné:', filters.gender)
+        console.log('Genre sélectionné:', currentGender)
         const fetchedProducts = await getProducts({
           gender: currentGender === 'all' ? undefined : currentGender
         })
