@@ -391,7 +391,7 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-black/10" />
                   
                   <Image
-                    src="https://asset.snipes.com/f_auto,q_auto:best,d_fallback-sni.png/g_auto,c_fill,w_223,h_223/dpr_1.0/02480699_2"
+                    src="/images/imgfemme.jpg"
                     alt="Sneakers Femme"
                     fill
                     className="object-cover object-center"
