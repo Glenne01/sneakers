@@ -193,6 +193,40 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Items créés:', orderItems.length)
 
+    // Envoyer l'email de confirmation
+    try {
+      const orderUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://sneakers-two-sigma.vercel.app'}/commandes`
+
+      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'https://sneakers-two-sigma.vercel.app'}/api/emails/send-order-confirmation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          customerEmail,
+          customerName: `${metadata.customerFirstName || ''} ${metadata.customerLastName || ''}`.trim(),
+          orderNumber,
+          orderDate: new Date().toLocaleDateString('fr-FR'),
+          items: orderItems.map(item => ({
+            productName: item.product_name,
+            variantColor: item.variant_color,
+            sizeValue: item.size_value,
+            quantity: item.quantity,
+            lineTotal: parseFloat(item.line_total.toString()),
+          })),
+          subtotal: orderItems.reduce((sum, item) => sum + parseFloat(item.line_total.toString()), 0),
+          shipping: totalAmount - orderItems.reduce((sum, item) => sum + parseFloat(item.line_total.toString()), 0),
+          total: totalAmount,
+          orderUrl,
+        }),
+      })
+
+      console.log('✅ Email de confirmation envoyé')
+    } catch (emailError) {
+      console.error('⚠️ Erreur envoi email (non bloquante):', emailError)
+      // Ne pas bloquer la création de commande si l'email échoue
+    }
+
     return NextResponse.json({
       success: true,
       orderId: order.id,

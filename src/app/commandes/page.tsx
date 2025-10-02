@@ -11,7 +11,8 @@ import {
   MapPinIcon,
   CalendarIcon,
   EyeIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
@@ -191,6 +192,33 @@ export default function CommandesPage() {
     }
   }
 
+  const downloadInvoice = async (orderId: string, orderNumber: string) => {
+    try {
+      toast('Téléchargement de la facture...', { icon: '📄' })
+
+      const response = await fetch(`/api/invoices/${orderId}`)
+
+      if (!response.ok) {
+        throw new Error('Erreur lors du téléchargement')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `facture-${orderNumber}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Facture téléchargée !')
+    } catch (error) {
+      console.error('Erreur téléchargement facture:', error)
+      toast.error('Erreur lors du téléchargement de la facture')
+    }
+  }
+
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
       case 'pending':
@@ -354,10 +382,22 @@ export default function CommandesPage() {
                               <span className="text-xl font-bold text-gray-900">
                                 {formatPrice(parseFloat(order.total_amount))}
                               </span>
-                              <div className="flex items-center text-orange-500 hover:text-orange-600">
-                                <EyeIcon className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">Voir détails</span>
-                                <ChevronRightIcon className="h-4 w-4 ml-1" />
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    downloadInvoice(order.id, order.order_number)
+                                  }}
+                                  className="flex items-center text-blue-500 hover:text-blue-600 transition-colors"
+                                >
+                                  <DocumentArrowDownIcon className="h-4 w-4 mr-1" />
+                                  <span className="text-sm font-medium">Facture</span>
+                                </button>
+                                <div className="flex items-center text-orange-500 hover:text-orange-600">
+                                  <EyeIcon className="h-4 w-4 mr-1" />
+                                  <span className="text-sm font-medium">Voir détails</span>
+                                  <ChevronRightIcon className="h-4 w-4 ml-1" />
+                                </div>
                               </div>
                             </div>
                           </div>
