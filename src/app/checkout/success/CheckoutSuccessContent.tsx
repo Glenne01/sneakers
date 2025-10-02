@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { CheckCircleIcon, ShoppingBagIcon, EnvelopeIcon } from '@heroicons/react/24/outline'
+import { CheckCircleIcon, ShoppingBagIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/stores/cartStore'
 import toast from 'react-hot-toast'
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 export default function CheckoutSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { items, clearCart } = useCartStore()
+  const { clearCart } = useCartStore()
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [emailSent, setEmailSent] = useState(false)
   const [sendingEmail, setSendingEmail] = useState(false)
@@ -35,22 +35,36 @@ export default function CheckoutSuccessContent() {
     try {
       setSendingEmail(true)
 
-      // Simuler un délai d'envoi pour l'effet visuel
-      await new Promise(resolve => setTimeout(resolve, 1500))
+      // Créer la commande dans Supabase
+      console.log('📝 Création de la commande...')
+      const response = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sessionId: session_id })
+      })
 
-      // Marquer l'email comme envoyé (simulation pour la démo)
+      const result = await response.json()
+
+      if (!result.success) {
+        console.error('❌ Erreur création commande:', result.error)
+        toast.error('Erreur lors de la création de la commande')
+        return
+      }
+
+      console.log('✅ Commande créée:', result.orderNumber)
+
+      // Marquer l'email comme envoyé
       setEmailSent(true)
-      toast.success('Email de confirmation envoyé !', {
-        icon: '📧',
+      toast.success('Commande confirmée !', {
+        icon: '✅',
         duration: 4000,
       })
 
-      console.log('✅ Email de confirmation simulé pour session:', session_id)
-
     } catch (error) {
-      console.error('Erreur lors de l\'envoi de l\'email:', error)
-      // Afficher quand même comme envoyé pour la démo
-      setEmailSent(true)
+      console.error('Erreur lors de la création de la commande:', error)
+      toast.error('Erreur lors de la création de la commande')
     } finally {
       setSendingEmail(false)
     }
@@ -99,16 +113,16 @@ export default function CheckoutSuccessContent() {
           {sendingEmail ? (
             <div className="flex items-center justify-center text-sm text-gray-500 mb-8">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-500 mr-2"></div>
-              Envoi de l'email de confirmation...
+              Création de votre commande...
             </div>
           ) : emailSent ? (
             <div className="flex items-center justify-center text-sm text-green-600 mb-8">
-              <EnvelopeIcon className="h-4 w-4 mr-2" />
-              Email de confirmation envoyé !
+              <CheckCircleIcon className="h-4 w-4 mr-2" />
+              Commande enregistrée !
             </div>
           ) : (
             <p className="text-sm text-gray-500 mb-8">
-              Vous recevrez un email de confirmation sous peu.
+              Traitement en cours...
             </p>
           )}
 
