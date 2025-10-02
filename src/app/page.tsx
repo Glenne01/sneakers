@@ -360,11 +360,11 @@ export default function HomePage() {
                   />
 
                   <div className="absolute inset-0 flex items-end p-8">
-                    <div className="text-white">
+                    <div className="text-orange-500">
                       <h3 className="text-2xl font-bold mb-2">
                         Homme
                       </h3>
-                      <p className="text-white/90 mb-4">
+                      <p className="text-orange-500/90 mb-4">
                         Sneakers masculines tendance
                       </p>
                       <div className="flex items-center text-sm font-medium">
@@ -398,11 +398,11 @@ export default function HomePage() {
                   />
 
                   <div className="absolute inset-0 flex items-end p-8">
-                    <div className="text-white">
+                    <div className="text-orange-500">
                       <h3 className="text-2xl font-bold mb-2">
                         Femme
                       </h3>
-                      <p className="text-white/90 mb-4">
+                      <p className="text-orange-500/90 mb-4">
                         Sneakers féminines stylées
                       </p>
                       <div className="flex items-center text-sm font-medium">
@@ -437,11 +437,11 @@ export default function HomePage() {
                   />
 
                   <div className="absolute inset-0 flex items-end p-8">
-                    <div className="text-white">
+                    <div className="text-orange-500">
                       <h3 className="text-2xl font-bold mb-2">
                         Enfants
                       </h3>
-                      <p className="text-white/90 mb-4">
+                      <p className="text-orange-500/90 mb-4">
                         Sneakers pour les plus jeunes
                       </p>
                       <div className="flex items-center text-sm font-medium">
