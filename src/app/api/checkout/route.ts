@@ -1,23 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import { getStripeSecretKey, getAppUrl } from '@/config/stripe'
 
 export async function POST(request: NextRequest) {
   console.log('🔧 API /api/checkout appelée')
 
   try {
-    // Vérifier les variables d'environnement
-    if (!process.env.STRIPE_SECRET_KEY) {
-      console.error('❌ STRIPE_SECRET_KEY manquante')
-      return NextResponse.json(
-        { error: 'Configuration Stripe manquante' },
-        { status: 500 }
-      )
-    }
+    // Récupérer la clé Stripe (depuis env ou fallback)
+    const STRIPE_SECRET_KEY = getStripeSecretKey()
 
-    console.log('✅ STRIPE_SECRET_KEY présente')
+    console.log('✅ Utilisation de la clé Stripe')
 
-    // Initialiser Stripe dans la fonction pour éviter les erreurs de build
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    // Initialiser Stripe
+    const stripe = new Stripe(STRIPE_SECRET_KEY, {
       apiVersion: '2024-11-20.acacia' as any
     })
 
@@ -68,13 +63,16 @@ export async function POST(request: NextRequest) {
       })
     }
 
+    // URL de l'application
+    const APP_URL = getAppUrl()
+
     // Créer la session Stripe Checkout
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: lineItems,
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/checkout/cancel`,
+      success_url: `${APP_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${APP_URL}/checkout/cancel`,
       customer_email: customerInfo.email,
       metadata: {
         customerFirstName: customerInfo.firstName,
