@@ -20,14 +20,10 @@ export async function GET(
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBua29tZ2xodnJ3YWRkc2h3amZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTg3OTMwMDEsImV4cCI6MjA3NDM2OTAwMX0.IakWiHM3bIjAm03DDv9GvF7PIGgpmMoU2JveB0DMbr4'
     )
 
-    // Récupérer la commande avec tous les détails
+    // Récupérer la commande
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select(`
-        *,
-        users (first_name, last_name, email),
-        order_items (*)
-      `)
+      .select('*')
       .eq('id', orderId)
       .single()
 
@@ -40,6 +36,26 @@ export async function GET(
     }
 
     console.log('✅ Commande trouvée')
+
+    // Récupérer l'utilisateur
+    const { data: userData } = await supabase
+      .from('users')
+      .select('first_name, last_name, email')
+      .eq('id', order.user_id)
+      .single()
+
+    // Récupérer les items
+    const { data: orderItems } = await supabase
+      .from('order_items')
+      .select('*')
+      .eq('order_id', orderId)
+
+    // Créer l'objet order avec les relations
+    const orderWithRelations = {
+      ...order,
+      users: userData || null,
+      order_items: orderItems || []
+    }
 
     // Créer le PDF
     const doc = new PDFDocument({ margin: 50 })
@@ -78,7 +94,7 @@ export async function GET(
       .text('Numéro de facture', 50, 170)
       .fontSize(11)
       .fillColor('#000000')
-      .text(order.order_number, 50, 185)
+      .text(orderWithRelations.order_number, 50, 185)
 
     doc
       .fontSize(10)
@@ -86,7 +102,7 @@ export async function GET(
       .text('Date', 300, 170)
       .fontSize(11)
       .fillColor('#000000')
-      .text(new Date(order.created_at).toLocaleDateString('fr-FR'), 300, 185)
+      .text(new Date(orderWithRelations.created_at).toLocaleDateString('fr-FR'), 300, 185)
 
     // Informations client
     doc
@@ -95,9 +111,9 @@ export async function GET(
       .text('Facturé à', 50, 230)
       .fontSize(11)
       .fillColor('#000000')
-      .text(`${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(), 50, 250)
-      .text(order.users?.email || '', 50, 265)
-      .text(order.shipping_address || '', 50, 280)
+      .text(`${orderWithRelations.users?.first_name || ''} ${orderWithRelations.users?.last_name || ''}`.trim(), 50, 250)
+      .text(orderWithRelations.users?.email || '', 50, 265)
+      .text(orderWithRelations.shipping_address || '', 50, 280)
 
     // Tableau des items
     const tableTop = 330
@@ -124,7 +140,7 @@ export async function GET(
     let currentY = headerY + 30
     let subtotal = 0
 
-    order.order_items.forEach((item: any) => {
+    orderWithRelations.order_items.forEach((item: any) => {
       const lineTotal = parseFloat(item.line_total)
       subtotal += lineTotal
 
@@ -150,7 +166,7 @@ export async function GET(
 
     // Totaux
     const totalsY = currentY + 30
-    const total = parseFloat(order.total_amount)
+    const total = parseFloat(orderWithRelations.total_amount)
     const shipping = total - subtotal
 
     doc
@@ -204,7 +220,7 @@ export async function GET(
     return new NextResponse(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="facture-${order.order_number}.pdf"`,
+        'Content-Disposition': `attachment; filename="facture-${orderWithRelations.order_number}.pdf"`,
       },
     })
 
