@@ -353,7 +353,7 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-black/10" />
                   
                   <Image
-                    src="/images/imghomme.avif"
+                    src="/images/homme.jpg"
                     alt="Sneakers Homme"
                     fill
                     className="object-cover object-center"
@@ -391,7 +391,7 @@ export default function HomePage() {
                   <div className="absolute inset-0 bg-black/10" />
                   
                   <Image
-                    src="/images/homme.jpg"
+                    src="/images/imgfemme.jpg"
                     alt="Sneakers Femme"
                     fill
                     className="object-cover object-center"
