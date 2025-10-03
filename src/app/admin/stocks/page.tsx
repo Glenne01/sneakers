@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { StockOverview, StockAlert, StockMovement } from '@/types/database'
+import { StockAlert, StockMovement } from '@/types/database'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'react-hot-toast'
 import {
@@ -14,8 +14,24 @@ import {
   EyeIcon
 } from '@heroicons/react/24/outline'
 
+interface StockOverviewItem {
+  variant_id: string
+  size_id: string
+  size_display: string
+  product_name: string
+  brand_name: string | null
+  sku: string
+  color: string | null
+  physical_stock: number
+  reserved_quantity: number
+  available_quantity: number
+  active_alerts: number
+  last_movement_date: string | null
+  updated_at: string
+}
+
 interface StockData {
-  overview: StockOverview[]
+  overview: StockOverviewItem[]
   alerts: StockAlert[]
   recentMovements: StockMovement[]
 }
@@ -45,13 +61,38 @@ export default function AdminStocksPage() {
     try {
       setLoading(true)
 
-      // Charger vue d'ensemble
+      // Charger vue d'ensemble directement depuis product_stock avec relations
       const { data: overview, error: overviewError } = await supabase
-        .from('stock_overview')
-        .select('*')
-        .order('last_movement_date', { ascending: false })
+        .from('product_stock')
+        .select(`
+          *,
+          product_variants!inner(
+            sku,
+            color,
+            products!inner(name)
+          ),
+          sizes!inner(id, size_display)
+        `)
+        .order('updated_at', { ascending: false })
 
       if (overviewError) throw overviewError
+
+      // Transformer les données pour correspondre à l'interface StockOverview
+      const transformedOverview = overview?.map((item: any) => ({
+        variant_id: item.variant_id,
+        size_id: item.size_id,
+        size_display: item.sizes?.size_display,
+        product_name: item.product_variants?.products?.name,
+        brand_name: null,
+        sku: item.product_variants?.sku,
+        color: item.product_variants?.color,
+        physical_stock: item.quantity,
+        reserved_quantity: 0,
+        available_quantity: item.quantity,
+        active_alerts: 0,
+        last_movement_date: item.updated_at,
+        updated_at: item.updated_at
+      })) || []
 
       // Charger alertes actives
       const { data: alerts, error: alertsError } = await supabase
@@ -89,7 +130,7 @@ export default function AdminStocksPage() {
       if (movementsError) throw movementsError
 
       setStockData({
-        overview: overview || [],
+        overview: transformedOverview,
         alerts: alerts || [],
         recentMovements: movements || []
       })
@@ -340,7 +381,7 @@ export default function AdminStocksPage() {
                         onClick={() => setAdjustmentModal({
                           open: true,
                           variantId: item.variant_id,
-                          sizeId: item.size_display, // Note: besoin de l'ID de taille, pas l'affichage
+                          sizeId: item.size_id,
                           currentStock: item.physical_stock
                         })}
                         className="text-blue-600 hover:text-blue-900"

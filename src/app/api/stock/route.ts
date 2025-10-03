@@ -67,24 +67,69 @@ export async function PATCH(request: NextRequest) {
       )
     }
 
-    const { data, error } = await supabase.rpc('adjust_stock', {
-      p_variant_id: variant_id,
-      p_size_id: size_id,
-      p_new_quantity: new_quantity,
-      p_reason: reason || 'Ajustement manuel',
-      p_user_id: user_id
-    })
+    // Récupérer le stock actuel
+    const { data: currentStock, error: fetchError } = await supabase
+      .from('product_stock')
+      .select('id, quantity')
+      .eq('variant_id', variant_id)
+      .eq('size_id', size_id)
+      .single() as { data: any, error: any }
 
-    if (error) throw error
-
-    if (!data.success) {
+    if (fetchError) {
+      console.error('Erreur récupération stock:', fetchError)
       return NextResponse.json(
-        { error: data.error },
-        { status: 400 }
+        { error: 'Stock introuvable' },
+        { status: 404 }
       )
     }
 
-    return NextResponse.json({ success: true, data })
+    const quantityBefore = currentStock.quantity
+    const quantityChange = new_quantity - quantityBefore
+
+    // Mettre à jour le stock
+    const { error: updateError } = await (supabase
+      .from('product_stock')
+      .update({
+        quantity: new_quantity,
+        updated_at: new Date().toISOString()
+      } as any)
+      .eq('id', currentStock.id) as any)
+
+    if (updateError) {
+      console.error('Erreur mise à jour stock:', updateError)
+      throw updateError
+    }
+
+    // Enregistrer le mouvement de stock
+    const { error: movementError } = await supabase
+      .from('stock_movements')
+      .insert({
+        variant_id,
+        size_id,
+        movement_type: 'adjustment',
+        quantity_change: quantityChange,
+        quantity_before: quantityBefore,
+        quantity_after: new_quantity,
+        reason: reason || 'Ajustement manuel',
+        user_id: user_id || null
+      } as any)
+
+    if (movementError) {
+      console.error('Erreur enregistrement mouvement:', movementError)
+      // Ne pas bloquer si l'enregistrement du mouvement échoue
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Stock ajusté avec succès',
+      data: {
+        variant_id,
+        size_id,
+        quantity_before: quantityBefore,
+        quantity_after: new_quantity,
+        quantity_change: quantityChange
+      }
+    })
   } catch (error) {
     console.error('Erreur ajustement stock:', error)
     return NextResponse.json(
