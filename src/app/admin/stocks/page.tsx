@@ -144,6 +144,8 @@ export default function AdminStocksPage() {
 
   const handleStockAdjustment = async (variantId: string, sizeId: string, newQuantity: number, reason: string) => {
     try {
+      console.log('📦 Envoi de la requête d\'ajustement:', { variantId, sizeId, newQuantity, reason })
+
       const response = await fetch('/api/stock', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -155,18 +157,21 @@ export default function AdminStocksPage() {
         })
       })
 
+      console.log('📡 Réponse reçue:', response.status, response.statusText)
+
       const result = await response.json()
+      console.log('📄 Résultat:', result)
 
       if (!response.ok) {
-        throw new Error(result.error)
+        throw new Error(result.error || 'Erreur inconnue')
       }
 
       toast.success('Stock mis à jour avec succès')
       setAdjustmentModal({ open: false })
       loadStockData()
-    } catch (error) {
-      console.error('Erreur ajustement stock:', error)
-      toast.error('Erreur lors de l\'ajustement')
+    } catch (error: any) {
+      console.error('❌ Erreur ajustement stock:', error)
+      toast.error(`Erreur: ${error.message}`)
     }
   }
 

@@ -55,14 +55,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 // Ajuster le stock manuellement
 export async function PATCH(request: NextRequest) {
   try {
-    const { variant_id, size_id, new_quantity, reason, user_id } = await request.json()
+    const body = await request.json()
+    const { variant_id, size_id, new_quantity, reason, user_id } = body
+
+    console.log('📦 Stock adjustment request:', { variant_id, size_id, new_quantity, reason })
 
     if (!variant_id || !size_id || new_quantity === undefined) {
+      console.error('❌ Paramètres manquants:', { variant_id, size_id, new_quantity })
       return NextResponse.json(
-        { error: 'Paramètres manquants' },
+        { error: 'Paramètres manquants: variant_id, size_id et new_quantity requis' },
         { status: 400 }
       )
     }
@@ -76,32 +83,51 @@ export async function PATCH(request: NextRequest) {
       .single() as { data: any, error: any }
 
     if (fetchError) {
-      console.error('Erreur récupération stock:', fetchError)
+      console.error('❌ Erreur récupération stock:', fetchError)
       return NextResponse.json(
-        { error: 'Stock introuvable' },
+        { error: `Stock introuvable: ${fetchError.message}` },
         { status: 404 }
       )
     }
 
+    if (!currentStock) {
+      console.error('❌ Aucun stock trouvé pour variant_id:', variant_id, 'size_id:', size_id)
+      return NextResponse.json(
+        { error: 'Aucun enregistrement de stock trouvé pour cette variante et taille' },
+        { status: 404 }
+      )
+    }
+
+    console.log('✅ Stock actuel récupéré:', currentStock)
+
     const quantityBefore = currentStock.quantity
     const quantityChange = new_quantity - quantityBefore
 
+    console.log('🔄 Mise à jour du stock:', { quantityBefore, new_quantity, quantityChange })
+
     // Mettre à jour le stock
-    const { error: updateError } = await (supabase
+    const updateResult = await supabase
       .from('product_stock')
       .update({
         quantity: new_quantity,
         updated_at: new Date().toISOString()
       } as any)
-      .eq('id', currentStock.id) as any)
+      .eq('id', currentStock.id)
+
+    const { error: updateError } = updateResult as any
 
     if (updateError) {
-      console.error('Erreur mise à jour stock:', updateError)
-      throw updateError
+      console.error('❌ Erreur mise à jour stock:', updateError)
+      return NextResponse.json(
+        { error: `Erreur mise à jour: ${updateError.message}` },
+        { status: 500 }
+      )
     }
 
+    console.log('✅ Stock mis à jour avec succès')
+
     // Enregistrer le mouvement de stock
-    const { error: movementError } = await supabase
+    const movementResult = await supabase
       .from('stock_movements')
       .insert({
         variant_id,
@@ -114,9 +140,13 @@ export async function PATCH(request: NextRequest) {
         user_id: user_id || null
       } as any)
 
+    const { error: movementError } = movementResult as any
+
     if (movementError) {
-      console.error('Erreur enregistrement mouvement:', movementError)
+      console.error('⚠️ Erreur enregistrement mouvement (non-bloquant):', movementError)
       // Ne pas bloquer si l'enregistrement du mouvement échoue
+    } else {
+      console.log('✅ Mouvement de stock enregistré')
     }
 
     return NextResponse.json({
